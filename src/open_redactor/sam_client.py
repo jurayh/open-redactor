@@ -84,11 +84,10 @@ def resolve_targets(
 def build_request_body(phrase: str, video_path: Path, stream: bool = True) -> Dict[str, Any]:
     """Build the SAM 3.1 request body for one phrase.
 
-    The video payload shape follows the docs example.
-    Callers that host the video at a URL can swap the payload.
+    Live verified shape on 2026-10-01:
+    input_video needs video_url with a data URI for local files.
+    A hosted https URL works the same way.
     """
-    # For local files we send a placeholder data payload.
-    # Hosted URLs can be passed via a different helper in real deployments.
     video_b64 = base64.b64encode(video_path.read_bytes()).decode("ascii")
     return {
         "model": DEFAULT_MODEL,
@@ -100,7 +99,29 @@ def build_request_body(phrase: str, video_path: Path, stream: bool = True) -> Di
                     {"type": "input_text", "text": phrase},
                     {
                         "type": "input_video",
-                        "video": video_b64,
+                        "video_url": f"data:video/mp4;base64,{video_b64}",
+                    },
+                ],
+            }
+        ],
+        "stream": stream,
+        "metadata": {"mask_encoding": "one_bit"},
+    }
+
+
+def build_image_request_body(phrase: str, image_b64: str, stream: bool = True) -> Dict[str, Any]:
+    """Build a SAM 3.1 request body for a single image."""
+    return {
+        "model": DEFAULT_MODEL,
+        "input": [
+            {
+                "type": "message",
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": phrase},
+                    {
+                        "type": "input_image",
+                        "image_url": f"data:image/png;base64,{image_b64}",
                     },
                 ],
             }
@@ -111,12 +132,14 @@ def build_request_body(phrase: str, video_path: Path, stream: bool = True) -> Di
 
 
 def parse_output_text(output_text: str, phrase: str, shape: tuple[int, int]) -> SegmentationResult:
-    """Parse SAM output_text lines into tracks.
+    """Parse SAM output_text into tracks.
 
-    The real wire format uses special tokens per frame.
-    This parser handles a simple JSON-lines fallback and the
-    documented token shape at a best-effort level so tests and
-    local development can run without a live key.
+    Live wire format verified on 2026-10-01:
+    Tokens look like <0f>0<|box;x1=160;y1=65;x2=479;y2=452;w=640;h=546|><|mask;...|>
+    The number before f is the frame index. The number after is the object ordinal.
+    The one_bit mask raster is decoded by @meta-sam/parser in the JS ecosystem.
+    This parser extracts boxes and builds box masks so the Python pipeline
+    can pad, carry, and render today. Swap in a raster decoder when available.
 
     Zero matches returns an empty result and is valid.
     """
@@ -125,11 +148,37 @@ def parse_output_text(output_text: str, phrase: str, shape: tuple[int, int]) -> 
         return result
 
     h, w = shape
-    # Try JSON lines first for local testing and recorded fixtures
+    # Live SAM token format
+    import re
+
+    token_pat = re.compile(
+        r"<(\d+)f>(\d+)<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);w=(\d+);h=(\d+)\|>"
+    )
+    found = False
+    for m in token_pat.finditer(output_text):
+        found = True
+        frame_index = int(m.group(1))
+        ordinal = m.group(2)
+        x0, y0, x1, y1 = int(m.group(3)), int(m.group(4)), int(m.group(5)), int(m.group(6))
+        track_id = str(ordinal)
+        mask = np.zeros((h, w), dtype=bool)
+        mask[max(0, y0): max(0, y1), max(0, x0): max(0, x1)] = True
+        det = DetectedObject(
+            track_id=track_id,
+            frame_index=frame_index,
+            box=(x0, y0, x1, y1),
+            mask=mask,
+            phrase=phrase,
+        )
+        result.objects.append(det)
+        result.tracks.setdefault(track_id, {})[frame_index] = mask
+    if found:
+        return result
+
+    # JSON lines fallback for local testing and recorded fixtures
     lines = [ln.strip() for ln in output_text.strip().splitlines() if ln.strip()]
     parsed_any = False
     for line in lines:
-        # Skip pure token markers that carry no JSON
         if line.startswith("{"):
             try:
                 obj = json.loads(line)
@@ -156,8 +205,6 @@ def parse_output_text(output_text: str, phrase: str, shape: tuple[int, int]) -> 
     if parsed_any:
         return result
 
-    # Fallback for token lines. Create no objects when no box data is present.
-    # This keeps zero-match and unknown formats safe.
     return result
 
 
@@ -198,14 +245,13 @@ class SamApiClient:
             "Content-Type": "application/json",
         }
         output_parts: List[str] = []
-        # Streaming response handling
+        # Streaming response handling. Live events use response.output_text.delta
         with httpx.Client(timeout=self.timeout) as client:
             with client.stream("POST", self.endpoint, json=body, headers=headers) as resp:
                 resp.raise_for_status()
                 for line in resp.iter_lines():
                     if not line:
                         continue
-                    # Server-sent events carry data lines
                     if line.startswith("data:"):
                         payload = line[5:].strip()
                         if payload == "[DONE]":
@@ -215,23 +261,23 @@ class SamApiClient:
                         except json.JSONDecodeError:
                             output_parts.append(payload)
                             continue
-                        # Collect output_text deltas when present
-                        delta = (
-                            event.get("delta")
-                            or event.get("output_text")
-                            or event.get("text")
-                            or ""
-                        )
+                        if event.get("type") == "response.output_text.delta":
+                            delta = event.get("delta", "")
+                            if isinstance(delta, str) and delta:
+                                output_parts.append(delta)
+                            continue
+                        if event.get("type") == "response.completed":
+                            resp_obj = event.get("response", {})
+                            for item in resp_obj.get("output", []) or []:
+                                for content in item.get("content", []) or []:
+                                    txt = content.get("text") or ""
+                                    if txt and not output_parts:
+                                        output_parts.append(txt)
+                            continue
+                        delta = event.get("delta") or event.get("text") or ""
                         if isinstance(delta, str) and delta:
                             output_parts.append(delta)
-                        # Some events carry a full output array
-                        for item in event.get("output", []) or []:
-                            for content in item.get("content", []) or []:
-                                txt = content.get("text") or content.get("output_text") or ""
-                                if txt:
-                                    output_parts.append(txt)
                     else:
-                        # Plain JSON response line
                         try:
                             event = json.loads(line)
                             for item in event.get("output", []) or []:

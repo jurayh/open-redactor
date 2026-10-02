@@ -1,6 +1,16 @@
 # Examples
 
-These commands show the v1 flows from the spec.
+These commands show the v1 flows from the spec. Media from a live SAM 3.1 run lives in media.
+
+## Media showcase
+
+- media/hero.gif is an animated side by side with the original on the left and redacted output on the right
+- media/hero-3panel.jpg shows one frame as original, SAM box view, and redacted output
+- media/contact-sheet.jpg samples the face track across the clip with red outlines
+- media/dropout-proof.png diagrams how carry-forward covers a two-frame detection drop
+- media/terminal.png shows a live run summary with targets, frame count, and output paths
+
+Source for the showcase was a short public portrait clip. Phrase was face. SAM returned one track across all 50 frames.
 
 ## Default run
 

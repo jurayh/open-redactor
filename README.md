@@ -4,6 +4,10 @@ Drop in a clip, name what to hide, get a redacted MP4 out.
 
 Open Redactor is an open-source CLI that makes video share-safe. It uses SAM 3.1 detection, segmentation, and identity-preserving video tracking to blur or pixelate people, faces, plates, screens, or any short noun phrase you name.
 
+![Redacted output](examples/media/hero.gif)
+
+Original on the left, redacted output on the right. Face track comes from a live SAM 3.1 video call. See the showcase below for stills and the full contact sheet.
+
 ## Thesis
 
 **Thesis:** Consumer video redaction is either manual or enterprise-priced and a prompt-driven open-source CLI makes share-safe video a one-command default.
@@ -11,6 +15,42 @@ Open Redactor is an open-source CLI that makes video share-safe. It uses SAM 3.1
 ## Value-add
 
 **Value-add:** Real video tracking quality without per-frame manual work plus a local mode that keeps private footage off any API.
+
+## Showcase
+
+Live SAM 3.1 run on a short public portrait clip. Phrase was face. The API returned one stable track across all 50 frames with box and one_bit mask tokens on every frame.
+
+Three views of the same frame. Original, SAM box with the mask token noted, and redacted output with margin and pixelation applied.
+
+![Three panel view](examples/media/hero-3panel.jpg)
+
+Contact sheet sampled across the clip. Red outlines mark the redaction zones so a human can spot a miss before sharing.
+
+![Contact sheet](examples/media/contact-sheet.jpg)
+
+Dropout proof. When raw detection drops for a frame or two, carry-forward keeps the last mask in place so the output never flashes clean.
+
+![Dropout proof](examples/media/dropout-proof.png)
+
+Terminal view of a live run. Resolved targets, frame count, track summary, and output paths print before and after rendering.
+
+![Terminal run](examples/media/terminal.png)
+
+Full resolution files live in examples/media. The raw SAM output excerpt with box tokens lives in docs/sam-output-excerpt.txt.
+
+## Use cases
+
+Family sharing. Vacation clips, school events, and backyard video where other kids, license plates, and house numbers enter the frame by accident. Defaults cover person, face, plate, and screen in one pass.
+
+Creators. Street interviews, vlogs, and product demos where bystanders, monitors, and vehicle plates need to be covered before posting. One command replaces timeline work.
+
+Journalists and researchers. Field recordings and interview footage where faces, name badges, and screens carry source risk. Local mode keeps sensitive footage off any API.
+
+Work and support. Screen recordings, warehouse and retail footage, and bug reports that show customer data on monitors. Scriptable batch mode fits review queues.
+
+Public data and research sharing. Dashcam clips, real estate walkthroughs, and dataset releases where plates, faces, and addresses must be removed at scale. Contact sheets give reviewers a fast coverage check.
+
+Each scenario maps to the same primitive. Name the class in a short noun phrase and the tracker holds it across time.
 
 ## Quick start
 
@@ -74,7 +114,7 @@ Exit code is 0 on success and non-zero on failure. A run that finds zero matches
 
 ## SAM 3.1 API mode
 
-API mode posts to https://api.meta.ai/v1/responses with model sam-3.1. Set your key in an environment variable and name it with --api-key-env. The CLI streams video so frames arrive as server-sent events until response.completed and uses metadata mask_encoding one_bit. Results return in output_text as special-token lines with one line per frame. The parser decodes them into boxes and binary masks with stable object identity across frames.
+API mode posts to https://api.meta.ai/v1/responses with model sam-3.1. Set your key in an environment variable and name it with --api-key-env. The CLI streams video so frames arrive as server-sent events until response.completed and uses metadata mask_encoding one_bit. Results return in output_text as special tokens with a frame marker, an object ordinal, a box, and a mask token per object per frame. A live run on 2026-10-01 returned tokens such as box 160,65 to 479,452 on a 640 by 546 frame with one stable face track across 50 frames. This parser extracts boxes today and builds box masks for rendering. The raster decoder from @meta-sam/parser is the clean swap for pixel-perfect edges.
 
 Local mode uses the open SAM weights directly and skips the API entirely. The CLI hides the difference behind one flag.
 
@@ -96,7 +136,7 @@ If SAM returns no mask for a frame inside a known track window, the renderer kee
 ## Install from source
 
 ```bash
-git clone https://github.com/example/open-redactor
+git clone https://github.com/jurayh/open-redactor
 cd open-redactor
 pip install -e .
 ```
