@@ -25,3 +25,13 @@ def test_cache_key_changes_with_phrase(tmp_path: Path):
     v.write_bytes(b"fake video")
     assert cache_key_for(v, "face") != cache_key_for(v, "person")
     assert cache_key_for(v, "face") == cache_key_for(v, "face")
+
+
+def test_hosted_endpoint_from_env(monkeypatch, tmp_path):
+    import os
+    from open_redactor.sam_client import SamApiClient
+    monkeypatch.setenv("OPEN_REDACTOR_ENDPOINT", "https://example.test/v1/responses")
+    client = SamApiClient.from_env("MODEL_API_KEY")
+    assert client.endpoint == "https://example.test/v1/responses"
+    client2 = SamApiClient.from_env("MODEL_API_KEY", endpoint="https://other.test/v1/responses")
+    assert client2.endpoint == "https://other.test/v1/responses"

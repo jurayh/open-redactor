@@ -31,6 +31,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--api-key-env", default="MODEL_API_KEY", help="Name the environment variable that holds the API key")
     p.add_argument("--preset", choices=sorted(PRESETS.keys()), default=None, help="Use a preset: family, street, or screen-share")
     p.add_argument("--no-cache", action="store_true", help="Do not reuse cached SAM results")
+    p.add_argument("--backend", choices=["api", "hosted", "local"], default=None, help="Where SAM runs: Meta Model API, your own hosted endpoint, or local open weights")
+    p.add_argument("--endpoint", default=None, help="Responses API endpoint for the hosted backend, or set OPEN_REDACTOR_ENDPOINT")
     p.add_argument("--ui", action="store_true", help="Launch the drag and drop local web page instead of processing a file")
     p.add_argument("--batch", action="store_true", help="Treat the input as a directory and process each MP4 inside")
     return p
@@ -65,6 +67,8 @@ def process_one(
     preview: bool = False,
     report: bool = True,
     use_cache: bool = True,
+    backend: str | None = None,
+    endpoint: str | None = None,
 ) -> int:
     out = output_path if output_path else default_output_path(input_path)
     if output_path is not None:
@@ -88,6 +92,8 @@ def process_one(
             preview=preview,
             report=report,
             use_cache=use_cache,
+            backend=backend,
+            endpoint=endpoint,
         )
         return 0
     except FileNotFoundError as exc:
@@ -168,6 +174,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 preview=args.preview,
                 report=not args.no_report,
                 use_cache=not args.no_cache,
+                backend=args.backend,
+                endpoint=args.endpoint,
             )
             if code != 0:
                 exit_code = code
@@ -196,6 +204,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         preview=args.preview,
         report=not args.no_report,
         use_cache=not args.no_cache,
+        backend=args.backend,
+        endpoint=args.endpoint,
     )
 
 

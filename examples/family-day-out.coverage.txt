@@ -1,0 +1,11 @@
+Open Redactor coverage report
+Targets: person, face, license plate, screen
+Total frames: 50
+Carry window: 6 frames
+
+Tracks: 1
+- face:0 detected 50 frames, span 0 to 49, filled or carried inside span 0
+Detections: 50 frames with detections
+Longest internal gap: 0 frames
+Result: all gaps are inside the carry window. Review the contact sheet before sharing.
+Note: audio is not redacted in v1. Check voices and spoken names separately.

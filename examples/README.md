@@ -12,6 +12,35 @@ These commands show the v1 flows from the spec. Media from a live SAM 3.1 run li
 
 Source for the showcase was a short public portrait clip. Phrase was face. SAM returned one track across all 50 frames.
 
+## Worked example 1. Family day out
+
+One short portrait clip, family preset, face phrase from a live SAM 3.1 run.
+
+```bash
+open-redactor clip.mp4 --preview --preset family
+open-redactor clip.mp4 --preset family --contact-sheet
+```
+
+What to look at:
+
+- media/hero-3panel.jpg shows the same frame clean, with the SAM box, and redacted
+- media/contact-sheet.jpg samples the track across all 50 frames with red outlines
+- family-day-out.coverage.txt is the coverage report for this track. All 50 frames detected, longest gap 0, no NEEDS REVIEW flags
+
+That is the trust loop. Preview, read one result line, scan the contact sheet, share.
+
+## Worked example 2. Re-render for free
+
+You like the coverage but want pixelate instead of blur, or a stronger look for a public post.
+
+```bash
+open-redactor clip.mp4 --preset family
+open-redactor clip.mp4 --preset family --mode pixelate --strength 24
+```
+
+The second run prints "SAM cache hit for 'face'. Skipping API call." Detection is reused from the cache under your home folder, so you pay only render time. Use --no-cache when the clip changed or you want a fresh detection pass. Output naming protects you here too, the second run writes a suffixed file instead of overwriting the first.
+
+
 ## Default run
 
 ```bash

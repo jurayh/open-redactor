@@ -324,6 +324,8 @@ def run_pipeline(
     preview: bool = False,
     report: bool = True,
     use_cache: bool = True,
+    backend: str | None = None,
+    endpoint: str | None = None,
 ) -> Dict[str, object]:
     """Run the full redaction pipeline and return a summary dict.
 
@@ -341,13 +343,18 @@ def run_pipeline(
     print(f"Targets: {', '.join(targets)}")
     print(f"Mode: {mode} strength={strength} margin={mask_margin} carry={carry_frames} local={local}")
 
-    # Segment and track
+    # Segment and track. Backend is api, hosted, or local.
+    # --local stays as an alias for the local backend.
+    resolved_backend = backend or ("local" if local else "api")
     client: SamApiClient | LocalSamStub
-    if local:
+    if resolved_backend == "local":
         client = LocalSamStub()
+    elif resolved_backend in ("api", "hosted"):
+        client = SamApiClient.from_env(api_key_env, use_cache=use_cache, endpoint=endpoint)
+        if resolved_backend == "hosted":
+            print(f"Hosted backend endpoint: {client.endpoint}")
     else:
-        from .sam_client import default_cache_dir
-        client = SamApiClient.from_env(api_key_env, use_cache=use_cache)
+        raise ValueError(f"Unknown backend '{resolved_backend}'. Choose api, hosted, or local.")
 
     all_tracks: Dict[str, Dict[int, np.ndarray]] = {}
     total_objects = 0

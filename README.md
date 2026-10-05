@@ -8,6 +8,31 @@ Open Redactor is an open-source CLI that makes video share-safe. It uses SAM 3.1
 
 Original on the left, redacted output on the right. Face track comes from a live SAM 3.1 video call. See the showcase below for stills and the full contact sheet.
 
+## Try it in 30 seconds
+
+Four commands show the whole loop. Preview, check coverage, run the preset, then re-render for free from cache.
+
+```bash
+pip install open-redactor
+
+# 1. Preview the first 3 seconds with a contact sheet and coverage report
+open-redactor clip.mp4 --preview --preset family
+
+# 2. Read the result line in the coverage report
+cat clip.redacted.coverage.txt
+
+# 3. Run the full clip
+open-redactor clip.mp4 --preset family --contact-sheet
+
+# 4. Change only the look and re-render, detection comes from cache
+open-redactor clip.mp4 --preset family --mode pixelate --strength 24
+```
+
+Step 4 prints "SAM cache hit" and skips the API call. Same tracks, new look, render time only.
+
+New here? Read [docs/using-open-redactor.md](docs/using-open-redactor.md) for the local page, privacy notes, and honest limits. Worked examples with frames and coverage proof live in [examples/README.md](examples/README.md).
+
+
 ## Thesis
 
 **Thesis:** Consumer video redaction is either manual or enterprise-priced and a prompt-driven open-source CLI makes share-safe video a one-command default.
@@ -96,6 +121,17 @@ open-redactor input.mp4 --target "license plate" --target "face"
 open-redactor input.mp4 --mode pixelate --strength 24
 open-redactor input.mp4 --mask-margin 12 --carry-frames 5 --contact-sheet
 ```
+
+## Where SAM runs
+
+SAM 3.1 is open weights, so the backend is a choice, not an assumption. API is the Meta Model API and works today with no GPU. Hosted points the same request at your own endpoint with --backend hosted and --endpoint. Local is for the open weights on your own hardware so footage never leaves the device, its loader is the top roadmap item and today it returns zero matches with a clear log line. Full notes in [docs/using-open-redactor.md](docs/using-open-redactor.md).
+
+```bash
+open-redactor clip.mp4 --backend api
+open-redactor clip.mp4 --backend hosted --endpoint https://your-host.example/v1/responses
+open-redactor clip.mp4 --backend local
+```
+
 
 ## Defaults
 

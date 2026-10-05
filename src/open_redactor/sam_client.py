@@ -296,9 +296,19 @@ class SamApiClient:
         self.use_cache = use_cache
 
     @classmethod
-    def from_env(cls, env_name: str = "MODEL_API_KEY", use_cache: bool = True) -> "SamApiClient":
+    def from_env(
+        cls,
+        env_name: str = "MODEL_API_KEY",
+        use_cache: bool = True,
+        endpoint: str | None = None,
+    ) -> "SamApiClient":
         key = os.environ.get(env_name)
-        return cls(api_key=key, use_cache=use_cache)
+        kwargs: dict = {"api_key": key, "use_cache": use_cache}
+        if endpoint:
+            kwargs["endpoint"] = endpoint
+        elif os.environ.get("OPEN_REDACTOR_ENDPOINT"):
+            kwargs["endpoint"] = os.environ["OPEN_REDACTOR_ENDPOINT"]
+        return cls(**kwargs)
 
     def segment_video(self, video_path: Path, phrase: str, shape: tuple[int, int]) -> SegmentationResult:
         """Run one phrase against one video via the API.
@@ -398,4 +408,5 @@ class LocalSamStub:
         # Extension point for real local weights.
         # For v1 the stub returns an empty result so the pipeline
         # still exercises padding, rendering, and contact sheet code.
+        print("Local backend: open SAM weights are not loaded in this build, returning zero matches. Use the api or hosted backend for live detection, or see docs/using-open-redactor.md for the local roadmap.")
         return SegmentationResult(phrase=phrase, raw_output_text="")
