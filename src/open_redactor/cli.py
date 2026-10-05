@@ -8,12 +8,13 @@ from pathlib import Path
 from typing import List, Optional
 
 from .pipeline import run_pipeline
+from .presets import PRESETS, apply_preset
 from .sam_client import resolve_targets
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="open-redactor", description="Make video share-safe with SAM 3.1 prompt-driven redaction")
-    p.add_argument("input", help="Input MP4 file or directory in batch mode")
+    p.add_argument("input", nargs="?", default=None, help="Input MP4 file or directory in batch mode")
     p.add_argument("--output", default=None, help="Output path. Defaults to input name plus a redacted suffix")
     p.add_argument("--target", action="append", default=None, help="Add one phrase. Can be repeated")
     p.add_argument("--targets-default", action="store_true", help="Start from the default set of person, face, license plate, and screen")
@@ -28,12 +29,26 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-report", action="store_true", help="Skip the coverage report")
     p.add_argument("--local", action="store_true", help="Run open weights on device and send nothing to the API")
     p.add_argument("--api-key-env", default="MODEL_API_KEY", help="Name the environment variable that holds the API key")
+    p.add_argument("--preset", choices=sorted(PRESETS.keys()), default=None, help="Use a preset: family, street, or screen-share")
+    p.add_argument("--no-cache", action="store_true", help="Do not reuse cached SAM results")
+    p.add_argument("--ui", action="store_true", help="Launch the drag and drop local web page instead of processing a file")
     p.add_argument("--batch", action="store_true", help="Treat the input as a directory and process each MP4 inside")
     return p
 
 
 def default_output_path(input_path: Path) -> Path:
-    return input_path.with_name(f"{input_path.stem}.redacted{input_path.suffix}")
+    return unique_output_path(input_path.with_name(f"{input_path.stem}.redacted{input_path.suffix}"))
+
+
+def unique_output_path(path: Path) -> Path:
+    """Return a path that does not overwrite an existing file."""
+    if not path.exists():
+        return path
+    for i in range(1, 1000):
+        candidate = path.with_name(f"{path.stem}-{i}{path.suffix}")
+        if not candidate.exists():
+            return candidate
+    return path
 
 
 def process_one(
@@ -49,8 +64,15 @@ def process_one(
     api_key_env: str,
     preview: bool = False,
     report: bool = True,
+    use_cache: bool = True,
 ) -> int:
     out = output_path if output_path else default_output_path(input_path)
+    if output_path is not None:
+        out = unique_output_path(output_path)
+        if out.resolve() == input_path.resolve():
+            out = unique_output_path(input_path.with_name(f'{input_path.stem}.redacted{input_path.suffix}'))
+        elif out != output_path:
+            print(f'Output exists, writing to {out} instead so nothing is overwritten.')
     try:
         run_pipeline(
             input_path=input_path,
@@ -65,6 +87,7 @@ def process_one(
             api_key_env=api_key_env,
             preview=preview,
             report=report,
+            use_cache=use_cache,
         )
         return 0
     except FileNotFoundError as exc:
@@ -81,6 +104,32 @@ def process_one(
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.ui:
+        from .webui import serve_ui
+        print("Open http://127.0.0.1:8765 in your browser. Files stay on this machine.")
+        serve_ui()
+        return 0
+
+    if not args.input:
+        parser.error("input is required unless you pass --ui")
+
+    # Presets fill only values the user did not set explicitly
+    if args.preset:
+        preset = apply_preset(args.preset)
+        if not args.target and not args.add_target and not args.targets_default:
+            args.target = list(preset["targets"])
+        if args.mode == "blur" and preset["mode"] != "blur":
+            args.mode = preset["mode"]
+        # Strength, margin, and carry use CLI defaults, so only apply preset
+        # values when the user left them at the default sentinels
+        if args.strength == 21:
+            args.strength = int(preset["strength"])
+        if args.mask_margin == 10:
+            args.mask_margin = int(preset["mask_margin"])
+        if args.carry_frames == 4:
+            args.carry_frames = int(preset["carry_frames"])
+        print(f"Preset: {args.preset} - {preset['description']}")
 
     targets = resolve_targets(
         targets=args.target,
@@ -118,6 +167,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 api_key_env=args.api_key_env,
                 preview=args.preview,
                 report=not args.no_report,
+                use_cache=not args.no_cache,
             )
             if code != 0:
                 exit_code = code
@@ -145,6 +195,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         api_key_env=args.api_key_env,
         preview=args.preview,
         report=not args.no_report,
+        use_cache=not args.no_cache,
     )
 
 

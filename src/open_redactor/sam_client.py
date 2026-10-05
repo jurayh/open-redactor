@@ -17,6 +17,7 @@ extension point for a real parser and for local weights.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 from dataclasses import dataclass, field
@@ -260,6 +261,21 @@ def parse_output_text(output_text: str, phrase: str, shape: tuple[int, int]) -> 
     return result
 
 
+def default_cache_dir() -> Path:
+    return Path.home() / ".cache" / "open-redactor" / "sam"
+
+
+def cache_key_for(video_path: Path, phrase: str) -> str:
+    h = hashlib.sha256()
+    try:
+        h.update(video_path.read_bytes())
+    except Exception:
+        h.update(str(video_path).encode())
+    h.update(phrase.encode())
+    h.update(DEFAULT_MODEL.encode())
+    return h.hexdigest()
+
+
 class SamApiClient:
     """Client for the Meta Model API SAM 3.1 endpoint."""
 
@@ -269,16 +285,20 @@ class SamApiClient:
         endpoint: str = DEFAULT_ENDPOINT,
         model: str = DEFAULT_MODEL,
         timeout: float = 120.0,
+        cache_dir: Optional[Path] = None,
+        use_cache: bool = True,
     ) -> None:
         self.api_key = api_key
         self.endpoint = endpoint
         self.model = model
         self.timeout = timeout
+        self.cache_dir = cache_dir if cache_dir is not None else default_cache_dir()
+        self.use_cache = use_cache
 
     @classmethod
-    def from_env(cls, env_name: str = "MODEL_API_KEY") -> "SamApiClient":
+    def from_env(cls, env_name: str = "MODEL_API_KEY", use_cache: bool = True) -> "SamApiClient":
         key = os.environ.get(env_name)
-        return cls(api_key=key)
+        return cls(api_key=key, use_cache=use_cache)
 
     def segment_video(self, video_path: Path, phrase: str, shape: tuple[int, int]) -> SegmentationResult:
         """Run one phrase against one video via the API.
@@ -290,6 +310,19 @@ class SamApiClient:
             raise RuntimeError("httpx is required for API mode. Install with pip install httpx")
         if not self.api_key:
             raise RuntimeError("No API key found. Set the env var named by --api-key-env")
+
+        # Cache check. A hit avoids paying for detection again on re-renders.
+        cache_path: Optional[Path] = None
+        if self.use_cache:
+            try:
+                key = cache_key_for(video_path, phrase)
+                cache_path = self.cache_dir / f"{key}.txt"
+                if cache_path.exists():
+                    cached = cache_path.read_text()
+                    print(f"SAM cache hit for '{phrase}'. Skipping API call.")
+                    return parse_output_text(cached, phrase=phrase, shape=shape)
+            except Exception:
+                cache_path = None
 
         body = build_request_body(phrase, video_path, stream=True)
         headers = {
@@ -340,6 +373,12 @@ class SamApiClient:
                         except json.JSONDecodeError:
                             output_parts.append(line)
         output_text = "".join(output_parts)
+        if self.use_cache and cache_path is not None:
+            try:
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                cache_path.write_text(output_text)
+            except Exception:
+                pass
         return parse_output_text(output_text, phrase=phrase, shape=shape)
 
 

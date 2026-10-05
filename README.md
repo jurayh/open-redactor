@@ -67,6 +67,19 @@ Coverage report writes next to every output unless you pass --no-report. It list
 
 Pixel-perfect masks use the one_bit raster from the SAM mask token when Node and @meta-sam/parser are available. Install once with npm install @meta-sam/parser and the Python pipeline will decode rasters and place them inside the SAM box. When the parser is not present it falls back to box masks and logs that choice. Either way padding, carry-forward, and smoothing still apply.
 
+
+## Ease pack
+
+Presets give one flag instead of a page of settings.
+
+```bash
+open-redactor input.mp4 --preset family
+open-redactor input.mp4 --preset street
+open-redactor input.mp4 --preset screen-share
+```
+
+Family uses generous blur, street pixelates people and plates, screen-share blurs screens and faces. Rendering prints progress with an ETA. SAM results are cached under your home cache folder so changing blur strength and re-rendering does not pay for detection again, use --no-cache to force a fresh call. Output naming never overwrites the original or an earlier redacted file, a suffix is added instead. A local drag and drop page is available with open-redactor --ui and binds only to 127.0.0.1. Audio is still not redacted, so check voices before sharing.
+
 ## Quick start
 
 ```bash

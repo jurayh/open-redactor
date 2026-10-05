@@ -11,6 +11,7 @@ Stages:
 from __future__ import annotations
 
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -179,10 +180,20 @@ def render_video(
     writer = cv2.VideoWriter(str(tmp_path), fourcc, info.fps, (info.width, info.height))
     if not writer.isOpened():
         raise RuntimeError("Could not open VideoWriter for output")
+    total = len(frames)
+    start_t = time.time()
+    last_pct = -10
     for idx, frame in enumerate(frames):
         mask = masks[idx] if idx < len(masks) else np.zeros((info.height, info.width), dtype=bool)
         redacted = apply_redaction_to_frame(frame, mask, mode=mode, strength=strength)
         writer.write(redacted)
+        if total > 0:
+            pct = int((idx+1)/total*100)
+            if pct >= last_pct+10 or idx+1==total:
+                last_pct = pct
+                elapsed = time.time()-start_t
+                eta = (elapsed/max(1,idx+1))*(total-idx-1)
+                print(f"Rendering {pct}% frame {idx+1}/{total} ETA {eta:.0f}s", flush=True)
     writer.release()
 
     if info.has_audio:
@@ -312,6 +323,7 @@ def run_pipeline(
     api_key_env: str = "MODEL_API_KEY",
     preview: bool = False,
     report: bool = True,
+    use_cache: bool = True,
 ) -> Dict[str, object]:
     """Run the full redaction pipeline and return a summary dict.
 
@@ -334,7 +346,8 @@ def run_pipeline(
     if local:
         client = LocalSamStub()
     else:
-        client = SamApiClient.from_env(api_key_env)
+        from .sam_client import default_cache_dir
+        client = SamApiClient.from_env(api_key_env, use_cache=use_cache)
 
     all_tracks: Dict[str, Dict[int, np.ndarray]] = {}
     total_objects = 0
