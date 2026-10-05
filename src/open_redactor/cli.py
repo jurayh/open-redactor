@@ -23,6 +23,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--mask-margin", type=int, default=10, help="Pad every mask by this many pixels")
     p.add_argument("--carry-frames", type=int, default=4, help="Hold a track for this many frames after it vanishes")
     p.add_argument("--contact-sheet", action="store_true", help="Write a PNG grid of redacted sample frames")
+    p.add_argument("--preview", action="store_true", help="Render only a 3 second sample plus contact sheet and coverage report")
+    p.add_argument("--report", action="store_true", help="Write a coverage report next to the output. On by default")
+    p.add_argument("--no-report", action="store_true", help="Skip the coverage report")
     p.add_argument("--local", action="store_true", help="Run open weights on device and send nothing to the API")
     p.add_argument("--api-key-env", default="MODEL_API_KEY", help="Name the environment variable that holds the API key")
     p.add_argument("--batch", action="store_true", help="Treat the input as a directory and process each MP4 inside")
@@ -44,6 +47,8 @@ def process_one(
     contact_sheet: bool,
     local: bool,
     api_key_env: str,
+    preview: bool = False,
+    report: bool = True,
 ) -> int:
     out = output_path if output_path else default_output_path(input_path)
     try:
@@ -58,6 +63,8 @@ def process_one(
             contact_sheet=contact_sheet,
             local=local,
             api_key_env=api_key_env,
+            preview=preview,
+            report=report,
         )
         return 0
     except FileNotFoundError as exc:
@@ -109,6 +116,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 contact_sheet=args.contact_sheet,
                 local=args.local,
                 api_key_env=args.api_key_env,
+                preview=args.preview,
+                report=not args.no_report,
             )
             if code != 0:
                 exit_code = code
@@ -134,6 +143,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         contact_sheet=args.contact_sheet,
         local=args.local,
         api_key_env=args.api_key_env,
+        preview=args.preview,
+        report=not args.no_report,
     )
 
 

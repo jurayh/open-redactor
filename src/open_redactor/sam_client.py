@@ -43,6 +43,9 @@ class DetectedObject:
     box: tuple[int, int, int, int]
     mask: Optional[np.ndarray] = None
     phrase: str = ""
+    mask_payload: Optional[str] = None
+    mask_width: Optional[int] = None
+    mask_height: Optional[int] = None
 
 
 @dataclass
@@ -148,13 +151,15 @@ def parse_output_text(output_text: str, phrase: str, shape: tuple[int, int]) -> 
         return result
 
     h, w = shape
-    # Live SAM token format
+    # Live SAM token format with optional mask token right after the box
     import re
 
     token_pat = re.compile(
         r"<(\d+)f>(\d+)<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);w=(\d+);h=(\d+)\|>"
+        r"(?:<\|mask;x=0;y=0;data=(\d+),(\d+),([^|]+)\|>)?"
     )
     found = False
+    pending_decode: list[DetectedObject] = []
     for m in token_pat.finditer(output_text):
         found = True
         frame_index = int(m.group(1))
@@ -170,9 +175,56 @@ def parse_output_text(output_text: str, phrase: str, shape: tuple[int, int]) -> 
             mask=mask,
             phrase=phrase,
         )
+        # Mask token groups are 9 height, 10 width, 11 payload in the token header order
+        # Live tokens use data=height,width,payload and the raster is width by height
+        if m.group(9) and m.group(11):
+            try:
+                mh = int(m.group(9))
+                mw = int(m.group(10))
+                det.mask_payload = m.group(11)
+                det.mask_width = mw
+                det.mask_height = mh
+                pending_decode.append(det)
+            except Exception:
+                pass
         result.objects.append(det)
         result.tracks.setdefault(track_id, {})[frame_index] = mask
     if found:
+        # Try pixel-perfect raster decode when Node and @meta-sam/parser are present
+        if pending_decode:
+            try:
+                from .mask_decode import decode_masks_batch
+
+                items = [
+                    {"payload": d.mask_payload, "width": d.mask_width, "height": d.mask_height}
+                    for d in pending_decode
+                ]
+                decoded = decode_masks_batch(items)  # type: ignore[arg-type]
+                if decoded is not None:
+                    placed = 0
+                    for det, raster in zip(pending_decode, decoded):
+                        if raster is None:
+                            continue
+                        x0, y0, x1, y1 = det.box
+                        full = np.zeros((h, w), dtype=bool)
+                        # Raster covers the box area. Resize to box size when needed.
+                        rh, rw = raster.shape
+                        box_h = max(0, y1 - y0)
+                        box_w = max(0, x1 - x0)
+                        if box_h > 0 and box_w > 0:
+                            if (rh, rw) != (box_h, box_w):
+                                # Nearest neighbor resize via numpy indexing
+                                yi = (np.linspace(0, rh - 1, box_h)).astype(int)
+                                xi = (np.linspace(0, rw - 1, box_w)).astype(int)
+                                raster = raster[np.ix_(yi, xi)]
+                            full[max(0, y0): max(0, y1), max(0, x0): max(0, x1)] = raster
+                            det.mask = full
+                            result.tracks[det.track_id][det.frame_index] = full
+                            placed += 1
+                    if placed:
+                        print(f"Decoded {placed} pixel masks via @meta-sam/parser")
+            except Exception as exc:
+                print(f"Mask decode unavailable, using box masks: {exc}")
         return result
 
     # JSON lines fallback for local testing and recorded fixtures

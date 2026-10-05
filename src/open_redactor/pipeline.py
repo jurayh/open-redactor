@@ -19,7 +19,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from .masks import build_per_frame_masks, coverage_gaps
+from .masks import build_coverage_report, build_per_frame_masks, coverage_gaps
 from .sam_client import LocalSamStub, SamApiClient, SegmentationResult
 
 
@@ -310,8 +310,16 @@ def run_pipeline(
     contact_sheet: bool = False,
     local: bool = False,
     api_key_env: str = "MODEL_API_KEY",
+    preview: bool = False,
+    report: bool = True,
 ) -> Dict[str, object]:
-    """Run the full redaction pipeline and return a summary dict."""
+    """Run the full redaction pipeline and return a summary dict.
+
+    Preview mode renders only the first 3 seconds plus a contact sheet
+    and a coverage report so the user can confirm coverage before a full run.
+    Report mode writes a coverage text file next to the output. It defaults
+    to on for normal runs and is always on in preview.
+    """
     info = probe_video(input_path)
     frames = extract_frames(input_path)
     total_frames = len(frames)
@@ -364,7 +372,54 @@ def run_pipeline(
         smooth_radius=1,
     )
 
-    # Render
+    # Coverage report
+    report_path: Optional[Path] = None
+    if report or preview:
+        report_path = output_path.with_suffix(".coverage.txt")
+        report_text = build_coverage_report(
+            tracks=all_tracks,
+            total_frames=total_frames,
+            carry_frames=carry_frames,
+            targets=targets,
+        )
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(report_text)
+        print(f"Coverage report: {report_path}")
+        # Print the short result line for the terminal
+        for line in report_text.splitlines():
+            if line.startswith("Result:"):
+                print(line)
+
+    if preview:
+        # Render only the first 3 seconds as a sample
+        sample_frames = int(info.fps * 3) if info.fps > 0 else 90
+        sample_frames = max(1, min(sample_frames, total_frames))
+        preview_output = output_path.with_name(output_path.stem + ".preview" + output_path.suffix)
+        render_video(
+            frames=frames[:sample_frames],
+            masks=merged_masks[:sample_frames],
+            info=info,
+            output_path=preview_output,
+            mode=mode,
+            strength=strength,
+        )
+        print(f"Preview sample: {preview_output} ({sample_frames} frames)")
+        contact_path = output_path.with_suffix(".contact.png")
+        make_contact_sheet(frames, merged_masks, contact_path)
+        print(f"Contact sheet: {contact_path}")
+        print("Preview only. Run without --preview for the full clip.")
+        return {
+            "input": str(input_path),
+            "output": str(preview_output),
+            "targets": targets,
+            "frames": total_frames,
+            "objects": total_objects,
+            "contact_sheet": str(contact_path),
+            "report": str(report_path) if report_path else None,
+            "preview": True,
+        }
+
+    # Render full clip
     render_video(
         frames=frames,
         masks=merged_masks,
@@ -375,7 +430,7 @@ def run_pipeline(
     )
     print(f"Wrote: {output_path}")
 
-    contact_path: Optional[Path] = None
+    contact_path = None
     if contact_sheet:
         contact_path = output_path.with_suffix(".contact.png")
         make_contact_sheet(frames, merged_masks, contact_path)
@@ -388,4 +443,6 @@ def run_pipeline(
         "frames": total_frames,
         "objects": total_objects,
         "contact_sheet": str(contact_path) if contact_path else None,
+        "report": str(report_path) if report_path else None,
+        "preview": False,
     }

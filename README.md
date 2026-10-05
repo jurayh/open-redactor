@@ -52,6 +52,21 @@ Public data and research sharing. Dashcam clips, real estate walkthroughs, and d
 
 Each scenario maps to the same primitive. Name the class in a short noun phrase and the tracker holds it across time.
 
+## Trust pack
+
+Preview before you commit. Coverage you can audit. Masks that follow the shape.
+
+Preview mode renders only the first 3 seconds plus a contact sheet and a coverage report. Check the sample, then run the full clip with confidence.
+
+```bash
+open-redactor input.mp4 --preview --target face
+open-redactor input.mp4 --target face
+```
+
+Coverage report writes next to every output unless you pass --no-report. It lists total frames, detected frames per track, span, longest internal gap, and any gap longer than the carry window flagged as NEEDS REVIEW. The result line prints in the terminal so you see it without opening the file.
+
+Pixel-perfect masks use the one_bit raster from the SAM mask token when Node and @meta-sam/parser are available. Install once with npm install @meta-sam/parser and the Python pipeline will decode rasters and place them inside the SAM box. When the parser is not present it falls back to box masks and logs that choice. Either way padding, carry-forward, and smoothing still apply.
+
 ## Quick start
 
 ```bash
@@ -90,6 +105,7 @@ open-redactor input.mp4 --targets-default --add-target "whiteboard"
 open-redactor input.mp4 --mode pixelate --strength 24
 open-redactor input.mp4 --mask-margin 12 --carry-frames 5
 open-redactor input.mp4 --contact-sheet
+open-redactor input.mp4 --preview --target face
 open-redactor input.mp4 --local
 open-redactor input.mp4 --api-key-env MODEL_API_KEY
 open-redactor ./clips --batch --contact-sheet
@@ -106,6 +122,9 @@ Key flags:
 - --mask-margin pads every mask by this many pixels and defaults to 10
 - --carry-frames holds a track for this many frames after it vanishes and defaults to 4
 - --contact-sheet writes a PNG grid of redacted sample frames
+- --preview renders only a 3 second sample plus contact sheet and coverage report
+- --report writes a coverage report next to the output and is on by default
+- --no-report skips the coverage report
 - --local runs open weights on device and sends nothing to the API
 - --api-key-env names the environment variable that holds the API key
 - --batch treats the input as a directory and processes each MP4 inside
@@ -114,7 +133,7 @@ Exit code is 0 on success and non-zero on failure. A run that finds zero matches
 
 ## SAM 3.1 API mode
 
-API mode posts to https://api.meta.ai/v1/responses with model sam-3.1. Set your key in an environment variable and name it with --api-key-env. The CLI streams video so frames arrive as server-sent events until response.completed and uses metadata mask_encoding one_bit. Results return in output_text as special tokens with a frame marker, an object ordinal, a box, and a mask token per object per frame. A live run on 2026-10-01 returned tokens such as box 160,65 to 479,452 on a 640 by 546 frame with one stable face track across 50 frames. This parser extracts boxes today and builds box masks for rendering. The raster decoder from @meta-sam/parser is the clean swap for pixel-perfect edges.
+API mode posts to https://api.meta.ai/v1/responses with model sam-3.1. Set your key in an environment variable and name it with --api-key-env. The CLI streams video so frames arrive as server-sent events until response.completed and uses metadata mask_encoding one_bit. Results return in output_text as special tokens with a frame marker, an object ordinal, a box, and a mask token per object per frame. A live run on 2026-10-01 returned tokens such as box 160,65 to 479,452 on a 640 by 546 frame with one stable face track across 50 frames. When Node and @meta-sam/parser are present the pipeline decodes the one_bit raster for pixel-perfect edges and falls back to box masks otherwise.
 
 Local mode uses the open SAM weights directly and skips the API entirely. The CLI hides the difference behind one flag.
 

@@ -212,3 +212,63 @@ def coverage_gaps(
             if gap > carry_frames:
                 gaps.append((track_id, a + 1, b - 1, gap))
     return gaps
+
+
+def build_coverage_report(
+    tracks: Dict[str, Dict[int, np.ndarray]],
+    total_frames: int,
+    carry_frames: int,
+    targets: List[str],
+) -> str:
+    """Build a plain text coverage report.
+
+    Counts detected frames, carried frames, longest gap, and uncovered gaps.
+    Carried frames are estimated from the processed track span.
+    """
+    lines: List[str] = []
+    lines.append("Open Redactor coverage report")
+    lines.append(f"Targets: {', '.join(targets) if targets else 'none'}")
+    lines.append(f"Total frames: {total_frames}")
+    lines.append(f"Carry window: {carry_frames} frames")
+    lines.append("")
+
+    if not tracks:
+        lines.append("Tracks: 0")
+        lines.append("Detections: 0 frames with detections")
+        lines.append("Result: nothing matched. A clean copy is safe to review in the contact sheet.")
+        return "\n".join(lines) + "\n"
+
+    total_detected = 0
+    longest_gap = 0
+    uncovered: List[tuple[str, int, int, int]] = []
+
+    for track_id in sorted(tracks.keys()):
+        frames = tracks[track_id]
+        detected = len(frames)
+        total_detected += detected
+        idx = sorted(frames.keys())
+        first = idx[0] if idx else 0
+        last = idx[-1] if idx else 0
+        span = (last - first + 1) if idx else 0
+        carried_est = max(0, span - detected)
+        lines.append(f"Track {track_id}: {detected} detected frames, span {first} to {last}, about {carried_est} filled or carried inside span")
+        for a, b in zip(idx, idx[1:]):
+            gap = b - a - 1
+            if gap > longest_gap:
+                longest_gap = gap
+            if gap > carry_frames:
+                uncovered.append((track_id, a + 1, b - 1, gap))
+
+    lines.append("")
+    lines.append(f"Frames with detections across all tracks: {total_detected}")
+    lines.append(f"Longest internal gap: {longest_gap} frames")
+    if uncovered:
+        lines.append(f"Uncovered gaps longer than carry window: {len(uncovered)}")
+        for track_id, start, end, length in uncovered:
+            lines.append(f"  {track_id} frames {start} to {end} length {length} NEEDS REVIEW")
+        lines.append("Result: review the contact sheet around those frames before sharing.")
+    else:
+        lines.append("Uncovered gaps longer than carry window: 0")
+        lines.append("Result: continuous coverage inside track spans with current carry settings.")
+    lines.append("Note: audio is not redacted in v1 and voices can still identify people.")
+    return "\n".join(lines) + "\n"
