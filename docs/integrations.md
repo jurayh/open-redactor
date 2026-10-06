@@ -7,7 +7,7 @@ Open Redactor is built to sit inside other tools rather than become another dest
 | Python API | Apps, notebooks, workers, and workflow engines | `redact_media` and `audit_media` |
 | MCP server | Agent frameworks and desktop AI tools | `open-redactor-mcp` |
 | HTTP server | Team services and no-code automation | `open-redactor-server` |
-| GitHub Action | Repository checks and release media | `jurayh/open-redactor@v0.2.3` |
+| GitHub Action | Repository checks and release media | `jurayh/open-redactor@v0.2.4` |
 | Pre-commit hook | Stopping a risky video before it enters Git | `open-redactor-audit` |
 | Docker | CI, servers, and repeatable installs | The repo `Dockerfile` |
 | CLI | Shell scripts, OBS folders, ffmpeg workflows, Airflow, and cron | `open-redactor` |
@@ -116,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: jurayh/open-redactor@v0.2.3
+      - uses: jurayh/open-redactor@v0.2.4
         env:
           MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
         with:
@@ -142,7 +142,7 @@ Add this to `.pre-commit-config.yaml` to audit videos before they are committed:
 ```yaml
 repos:
   - repo: https://github.com/jurayh/open-redactor
-    rev: v0.2.3
+    rev: v0.2.4
     hooks:
       - id: open-redactor-audit
         args: [--fail-on=medium, --sensitive, --backend=api]

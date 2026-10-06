@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 from .masks import build_per_frame_masks
-from .pipeline import apply_redaction_to_frame
+from .pipeline import apply_redaction_to_frame, apply_secure_fill
 from .sam_client import LocalSamStub, SamApiClient, SegmentationResult
 
 SUPPORTED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
@@ -109,7 +109,16 @@ def run_image_pipeline(
             if np.any(single[0]):
                 redacted = apply_replacement(redacted, single[0], track_key)
     else:
-        redacted = apply_redaction_to_frame(frame, masks[0], mode=mode if mode in ("blur", "pixelate") else "blur", strength=strength)
+        base_frame = frame
+        code_tracks = {key: value for key, value in all_tracks.items() if key.startswith("code:")}
+        if code_tracks:
+            code_masks = build_per_frame_masks(
+                tracks=code_tracks, total_frames=1, shape=shape,
+                margin=mask_margin, carry_frames=0, smooth_radius=1,
+            )
+            base_frame = apply_secure_fill(frame, code_masks[0])
+            print("Codes: opaque fill applied so the payload cannot be decoded from a blurred pattern")
+        redacted = apply_redaction_to_frame(base_frame, masks[0], mode=mode if mode in ("blur", "pixelate") else "blur", strength=strength)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if not cv2.imwrite(str(output_path), redacted):
         raise RuntimeError(f"Could not write output image: {output_path}")

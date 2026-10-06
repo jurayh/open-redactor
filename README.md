@@ -42,7 +42,7 @@ open-redactor clip.mp4 --preset family --mode pixelate  # re-render free, detect
 
 **Printed secrets.** The text layer OCRs frames and covers verified credit card numbers, Social Security numbers, phone numbers, and emails. Card numbers must pass the Luhn check, so order numbers stay untouched.
 
-**Codes.** QR codes and barcodes, which carry Wi-Fi passwords, payment links, and contact cards.
+**Codes.** QR codes and barcodes, which carry Wi-Fi passwords, payment links, and contact cards. Code regions get an opaque fill in blur and pixelate modes because a blurred QR pattern can still be thresholded and decoded.
 
 **Location clues.** Street signs, house numbers, plates, and mailboxes with the location preset.
 
@@ -179,7 +179,7 @@ More worked examples with frames and coverage proof live in [examples/README.md]
 
 An eval harness ships in [eval/](eval/). Three generated clips with exact ground truth score the codes layer, the text layer, and live SAM tracking on recall, mask overlap, coverage continuity, and a leakage metric that measures how much identifying detail survives redaction.
 
-Current reference scores: QR codes recall 1.00 with leakage 0.16, screen form text recall 1.00 with leakage 0.07, and a moving name badge at recall 0.77, including a real 7 frame entry gap the harness caught. The eval README maps the format to EgoBlur, Ref-YouTube-VOS, DAVIS, and MOT so external sets can plug into the same scorer.
+Current reference scores: QR codes recall 1.00 with leakage 0.12, screen form text recall 1.00 with leakage 0.07, and a moving name badge at recall 0.77, including a real 7 frame entry gap the harness caught. The eval README maps the format to EgoBlur, Ref-YouTube-VOS, DAVIS, and MOT so external sets can plug into the same scorer.
 
 
 ## How it compares

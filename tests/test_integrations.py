@@ -121,3 +121,10 @@ def test_audit_gate_threshold(monkeypatch, tmp_path):
     monkeypatch.setattr(audit_gate, "audit_media", lambda *args, **kwargs: result)
     assert audit_gate.audit_files([source], fail_on="critical") == 0
     assert audit_gate.audit_files([source], fail_on="high") == 1
+
+
+def test_precommit_manifest_uses_filename_matching_only():
+    manifest = (Path(__file__).resolve().parent.parent / ".pre-commit-hooks.yaml").read_text()
+    assert "types_or" not in manifest
+    assert "open-redactor-audit" in manifest
+    assert "mp4|mov|mkv|webm|avi|m4v" in manifest

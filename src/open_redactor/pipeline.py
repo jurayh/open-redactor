@@ -184,6 +184,22 @@ def apply_redaction_to_frame(
     return out
 
 
+def apply_secure_fill(frame: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Cover a region with a solid fill that cannot be decoded or sharpened.
+
+    Gaussian blur is not a safe treatment for QR codes and barcodes. Their
+    payload is a high contrast binary pattern, and a decoder can threshold
+    the blurred pattern back into modules. Code regions therefore get an
+    opaque fill before the caller's chosen blur or pixelate treatment is
+    applied to the rest of the frame.
+    """
+    if mask is None or not np.any(mask):
+        return frame.copy()
+    out = frame.copy()
+    out[mask] = (0, 0, 0)
+    return out
+
+
 AUDIO_MODES = ("keep", "mute", "pitch")
 
 
@@ -522,6 +538,19 @@ def run_pipeline(
         smooth_radius=1,
     )
 
+    # Codes get an opaque fill in blur and pixelate modes. A blurred QR
+    # pattern can still be thresholded and decoded, so the code layer must
+    # not depend on the decorative treatment used for faces and objects.
+    secure_tracks = {key: value for key, value in all_tracks.items() if key.startswith("code:")}
+    secure_masks = build_per_frame_masks(
+        tracks=secure_tracks,
+        total_frames=total_frames,
+        shape=shape,
+        margin=mask_margin,
+        carry_frames=carry_frames,
+        smooth_radius=1,
+    ) if secure_tracks else []
+
     # Analytics summary, shared by shadow audits and real runs
     from .analytics import build_summary, summary_text, write_summary_files
     summary = build_summary(all_tracks, total_frames, audio_mode=audio_mode, shadow=shadow)
@@ -550,6 +579,12 @@ def run_pipeline(
     # Replace mode works per track so each kind gets its own stand-in
     render_frames = frames
     render_masks = merged_masks
+    if secure_masks and mode in ("blur", "pixelate"):
+        render_frames = [
+            apply_secure_fill(frame, secure_masks[idx]) if idx < len(secure_masks) else frame.copy()
+            for idx, frame in enumerate(frames)
+        ]
+        print("Codes: opaque fill applied so the payload cannot be decoded from a blurred pattern")
     if mode == "replace":
         from .replace import apply_replacement
         per_track_masks = {}

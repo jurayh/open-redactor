@@ -19,7 +19,7 @@ Writes eval/results/report-card.md and report-card.json.
 
 ## Current reference scores (0.2.1 layers)
 
-- qr-static: recall 1.00 at IoU 0.5, mean IoU 0.75, coverage 1.00, leakage 0.16
+- qr-static: recall 1.00 at IoU 0.5, mean IoU 0.75, coverage 1.00, leakage 0.12
 - screen-form: recall 1.00, mean IoU 0.69, coverage 1.00, leakage 0.07
 - badge-moving: recall 0.77, mean IoU 0.75, coverage 0.77, longest gap 7 frames at entry
 
