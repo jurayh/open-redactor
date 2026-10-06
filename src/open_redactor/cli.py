@@ -195,6 +195,35 @@ def main(argv: Optional[List[str]] = None) -> int:
                 exit_code = code
         return exit_code
 
+    # Photo mode: image inputs go to the image pipeline, output keeps its format
+    if input_path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".bmp"}:
+        from .image_pipeline import run_image_pipeline
+        out = Path(args.output) if args.output else unique_output_path(
+            input_path.with_name(f"{input_path.stem}.redacted{input_path.suffix}")
+        )
+        if args.output:
+            out = unique_output_path(out)
+        try:
+            run_image_pipeline(
+                input_path=input_path,
+                output_path=out,
+                targets=targets,
+                mode=args.mode,
+                strength=args.strength,
+                mask_margin=args.mask_margin,
+                local=args.local,
+                api_key_env=args.api_key_env,
+                backend=args.backend,
+                endpoint=args.endpoint,
+                provider=args.provider,
+                pii_text=args.pii_text or args.sensitive,
+                codes=args.codes or args.sensitive,
+            )
+            return 0
+        except Exception as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
     # Single file mode
     if not input_path.exists():
         print(f"Error: Input not found: {input_path}", file=sys.stderr)

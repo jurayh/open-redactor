@@ -34,7 +34,7 @@ Pixel-perfect masks need Node and @meta-sam/parser on the machine. Without them 
 
 Detection can miss. Padding, carry-forward, and gap flags reduce the leak risk, and the contact sheet is your final human check. Treat any NEEDS REVIEW line in a coverage report as a stop before sharing.
 
-Input formats are MP4, MOV, MKV, WebM, AVI, and M4V. Phones shoot MOV, screen tools emit WebM and MKV, and older cameras write AVI, so all of them are accepted and batch mode picks them all up. Output is always MP4 for share compatibility. Non-MP4 inputs sent to the API or a hosted endpoint are transcoded to a temp MP4 for the upload only, your original file is never changed.
+Video input formats are MP4, MOV, MKV, WebM, AVI, and M4V. Photo inputs are JPG, PNG, WebP, and BMP, and a photo run writes a redacted photo in the same format using the same targets, presets, and sensitive layers. Phones shoot MOV, screen tools emit WebM and MKV, and older cameras write AVI, so all of them are accepted and batch mode picks them all up. Output is always MP4 for share compatibility. Non-MP4 inputs sent to the API or a hosted endpoint are transcoded to a temp MP4 for the upload only, your original file is never changed.
 
 ## Sensitive documents
 

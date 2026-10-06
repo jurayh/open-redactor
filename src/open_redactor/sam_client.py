@@ -391,6 +391,59 @@ class SamApiClient:
                 pass
         return parse_output_text(output_text, phrase=phrase, shape=shape)
 
+    def segment_image(self, image_path: Path, phrase: str, shape: tuple[int, int]) -> SegmentationResult:
+        """Run one phrase against one photo via the image API shape."""
+        if httpx is None:
+            raise RuntimeError("httpx is required for API mode. Install with pip install httpx")
+        if not self.api_key:
+            raise RuntimeError("No API key found. Set the env var named by --api-key-env")
+        cache_path: Optional[Path] = None
+        if self.use_cache:
+            try:
+                key = cache_key_for(image_path, phrase + ":image")
+                cache_path = self.cache_dir / f"{key}.txt"
+                if cache_path.exists():
+                    print(f"SAM cache hit for '{phrase}'. Skipping API call.")
+                    return parse_output_text(cache_path.read_text(), phrase=phrase, shape=shape)
+            except Exception:
+                cache_path = None
+        image_b64 = base64.b64encode(image_path.read_bytes()).decode()
+        body = build_image_request_body(phrase, image_b64, stream=True)
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        output_parts: List[str] = []
+        with httpx.Client(timeout=self.timeout) as client:
+            with client.stream("POST", self.endpoint, json=body, headers=headers) as resp:
+                resp.raise_for_status()
+                for line in resp.iter_lines():
+                    if not line or not line.startswith("data:"):
+                        continue
+                    payload = line[5:].strip()
+                    if payload == "[DONE]":
+                        break
+                    try:
+                        event = json.loads(payload)
+                    except json.JSONDecodeError:
+                        output_parts.append(payload)
+                        continue
+                    if event.get("type") == "response.output_text.delta":
+                        delta = event.get("delta", "")
+                        if isinstance(delta, str) and delta:
+                            output_parts.append(delta)
+                    elif event.get("type") == "response.completed":
+                        for item in (event.get("response", {}).get("output", []) or []):
+                            for content in item.get("content", []) or []:
+                                txt = content.get("text") or ""
+                                if txt and not output_parts:
+                                    output_parts.append(txt)
+        output_text = "".join(output_parts)
+        if self.use_cache and cache_path is not None:
+            try:
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                cache_path.write_text(output_text)
+            except Exception:
+                pass
+        return parse_output_text(output_text, phrase=phrase, shape=shape)
+
 
 class LocalSamStub:
     """Local mode stub.
@@ -403,6 +456,9 @@ class LocalSamStub:
 
     def __init__(self, weights_path: Optional[Path] = None) -> None:
         self.weights_path = weights_path
+
+    def segment_image(self, image_path: Path, phrase: str, shape: tuple[int, int]) -> SegmentationResult:
+        return SegmentationResult(phrase=phrase, raw_output_text="")
 
     def segment_video(self, video_path: Path, phrase: str, shape: tuple[int, int]) -> SegmentationResult:
         # Extension point for real local weights.

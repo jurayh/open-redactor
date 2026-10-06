@@ -196,3 +196,20 @@ class LocalGroundingSamClient:
         cap.release()
         print(f"Local Grounding SAM: '{phrase}' produced {len(result.tracks)} tracks over {frame_idx} frames")
         return result
+
+
+    def segment_image(self, image_path: Path, phrase: str, shape: tuple[int, int]) -> SegmentationResult:
+        """Run the local stack on one photo by way of a one frame clip."""
+        import tempfile
+
+        import cv2
+
+        frame = cv2.imread(str(image_path))
+        if frame is None:
+            return SegmentationResult(phrase=phrase, raw_output_text="")
+        with tempfile.TemporaryDirectory(prefix="open-redactor-photo-") as td:
+            tmp = Path(td) / "photo.mp4"
+            writer = cv2.VideoWriter(str(tmp), cv2.VideoWriter_fourcc(*"mp4v"), 10, (shape[1], shape[0]))
+            writer.write(frame)
+            writer.release()
+            return self.segment_video(tmp, phrase, shape=shape)

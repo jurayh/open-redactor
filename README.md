@@ -146,6 +146,18 @@ open-redactor clip.mp4 --backend local --provider grounding-sam
 ```
 
 
+## Photos too
+
+Photos work the same way as video. JPG, PNG, WebP, and BMP in, redacted photo out in the same format with the same name plus a redacted suffix. Targets, presets, documents mode, text PII, and QR codes all apply to a single photo exactly as they do to a frame of video.
+
+```bash
+open-redactor photo.jpg --preset documents --sensitive
+open-redactor photo.png --target face --mode pixelate
+```
+
+Video still gets tracking, carry-forward, previews, and coverage reports. Photos get the same detection and layers with no timeline to audit.
+
+
 ## Input formats
 
 MP4, MOV, MKV, WebM, AVI, and M4V in, MP4 out. iPhone MOV, OBS MKV, browser WebM, and older camera AVI all work in single and batch mode. API uploads transcode non-MP4 inputs to a temp MP4 automatically.
