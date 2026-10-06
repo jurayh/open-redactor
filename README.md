@@ -156,6 +156,24 @@ An eval harness ships in [eval/](eval/). Three generated clips with exact ground
 Current reference scores: QR codes recall 1.00 with leakage 0.16, screen form text recall 1.00 with leakage 0.07, and a moving name badge at recall 0.77, including a real 7 frame entry gap the harness caught. The eval README maps the format to EgoBlur, Ref-YouTube-VOS, DAVIS, and MOT so external sets can plug into the same scorer.
 
 
+## How it compares
+
+| Capability | Open Redactor | deface | EgoBlur | DeepPrivacy 2 | Brighter AI | Presidio |
+|---|---|---|---|---|---|---|
+| Redact any named class | Yes | No | No | No | No | No |
+| Faces and plates | Yes | Faces only | Yes | Faces only | Yes | No |
+| Documents and typed PII | Yes | No | No | No | No | Images only |
+| QR codes and location clues | Yes | No | No | No | No | No |
+| Audio redaction | Yes | No | No | No | No | No |
+| Replace with consistent fakes | Yes | No | No | Faces | Yes | No |
+| Shadow audit and coverage report | Yes | No | No | No | No | No |
+| Published leakage scores | Yes | No | No | No | No | No |
+| Fully local mode | Yes | Yes | Yes | Yes | No | Yes |
+| Open source | Apache-2.0 | MIT | Research | Research | Closed | MIT |
+
+Full comparison with the rows where the specialists win: [docs/comparison.md](docs/comparison.md).
+
+
 ## Why this exists
 
 **Thesis:** Consumer video redaction is either manual or enterprise-priced and a prompt-driven open-source CLI makes share-safe video a one-command default.
