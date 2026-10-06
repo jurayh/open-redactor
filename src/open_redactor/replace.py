@@ -111,18 +111,16 @@ def _draw_avatar(frame: np.ndarray, box: Box, track_key: str) -> np.ndarray:
         return frame
     img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     draw = ImageDraw.Draw(img)
-    # Soft background disc sampled as a calm neutral
-    bg = (rng.randint(180, 215), rng.randint(180, 210), rng.randint(175, 205))
     skin = (rng.randint(195, 225), rng.randint(160, 185), rng.randint(125, 155))
     shirt = (rng.randint(70, 120), rng.randint(90, 130), rng.randint(120, 165))
-    draw.rectangle([x1, y1, x2, y2], fill=bg)
     cx = (x1 + x2) // 2
-    head_r = max(4, int(bw * 0.22))
-    head_cy = y1 + int(bh * 0.34)
-    draw.ellipse([cx - head_r, head_cy - head_r, cx + head_r, head_cy + head_r], fill=skin)
-    shoulder_w = int(bw * 0.62)
-    shoulder_top = head_cy + head_r + max(2, int(bh * 0.06))
-    draw.ellipse([cx - shoulder_w // 2, shoulder_top, cx + shoulder_w // 2, y2 + int(bh * 0.25)], fill=shirt)
+    head_rx = max(4, int(bw * 0.34))
+    head_ry = max(4, int(bh * 0.40))
+    head_cy = y1 + int(bh * 0.42)
+    draw.ellipse([cx - head_rx, head_cy - head_ry, cx + head_rx, head_cy + head_ry], fill=skin)
+    shoulder_w = int(bw * 0.92)
+    shoulder_top = y1 + int(bh * 0.80)
+    draw.ellipse([cx - shoulder_w // 2, shoulder_top, cx + shoulder_w // 2, y2 + int(bh * 0.45)], fill=shirt)
     return cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR)
 
 

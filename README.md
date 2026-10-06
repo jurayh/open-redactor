@@ -43,7 +43,7 @@ open-redactor clip.mp4 --preset family --mode pixelate  # re-render free, detect
 
 ![Replace demo](examples/media/replace-demo.jpg)
 
-*Replace mode on a synthetic scene. The person becomes a neutral avatar and the house number becomes a fake plaque. Fakes are deterministic per track, so the same fake number stays on the same house for the whole clip. Fake card numbers use the reserved test range, phone numbers use the fictional 555 range.*
+*Replace mode on the real showcase portrait. The face becomes a neutral synthetic avatar while the photo around it stays untouched. The same treatment swaps plates and house numbers for fake plaques and card numbers for format valid fakes in the reserved test range. Fakes are deterministic per track, so the same person keeps the same stand-in for the whole clip.*
 
 ```bash
 open-redactor clip.mp4 --mode replace --preset location
