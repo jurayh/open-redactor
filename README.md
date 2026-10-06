@@ -146,6 +146,10 @@ open-redactor clip.mp4 --backend local --provider grounding-sam
 ```
 
 
+## Input formats
+
+MP4, MOV, MKV, WebM, AVI, and M4V in, MP4 out. iPhone MOV, OBS MKV, browser WebM, and older camera AVI all work in single and batch mode. API uploads transcode non-MP4 inputs to a temp MP4 automatically.
+
 ## Defaults
 
 Defaults matter more than options. SAM finds pixels and does not decide what should be hidden so the default set is a product decision.
@@ -238,4 +242,4 @@ Apache-2.0. See LICENSE.
 
 ## Roadmap notes
 
-v1 is CLI first, MP4 in and MP4 out, audio preserved, blur and pixelate modes, per-class phrases, optional contact sheet, and optional local mode. Audio redaction, real-time mode, GUI, and formats beyond MP4 are out of scope for v1.
+v1 is CLI first, audio preserved, blur and pixelate modes, per-class phrases, optional contact sheet, and optional local mode. Inputs now cover MP4, MOV, MKV, WebM, AVI, and M4V with MP4 output. Audio redaction and real-time mode stay out of scope.

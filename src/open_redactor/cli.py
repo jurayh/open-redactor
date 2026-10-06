@@ -14,7 +14,7 @@ from .sam_client import resolve_targets
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="open-redactor", description="Make video share-safe with SAM 3.1 prompt-driven redaction")
-    p.add_argument("input", nargs="?", default=None, help="Input MP4 file or directory in batch mode")
+    p.add_argument("input", nargs="?", default=None, help="Input video file, MP4, MOV, MKV, WebM, AVI, or M4V, or a directory in batch mode")
     p.add_argument("--output", default=None, help="Output path. Defaults to input name plus a redacted suffix")
     p.add_argument("--target", action="append", default=None, help="Add one phrase. Can be repeated")
     p.add_argument("--targets-default", action="store_true", help="Start from the default set of person, face, license plate, and screen")
@@ -43,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def default_output_path(input_path: Path) -> Path:
-    return unique_output_path(input_path.with_name(f"{input_path.stem}.redacted{input_path.suffix}"))
+    return unique_output_path(input_path.with_name(f"{input_path.stem}.redacted.mp4"))
 
 
 def unique_output_path(path: Path) -> Path:
@@ -81,7 +81,7 @@ def process_one(
     if output_path is not None:
         out = unique_output_path(output_path)
         if out.resolve() == input_path.resolve():
-            out = unique_output_path(input_path.with_name(f'{input_path.stem}.redacted{input_path.suffix}'))
+            out = unique_output_path(input_path.with_name(f'{input_path.stem}.redacted.mp4'))
         elif out != output_path:
             print(f'Output exists, writing to {out} instead so nothing is overwritten.')
     try:
@@ -159,9 +159,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not input_path.is_dir():
             print(f"Error: batch mode needs a directory: {input_path}", file=sys.stderr)
             return 2
-        mp4s = sorted(input_path.glob("*.mp4"))
+        from .pipeline import SUPPORTED_INPUT_SUFFIXES
+        mp4s = sorted(f for f in input_path.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_INPUT_SUFFIXES)
         if not mp4s:
-            print(f"No MP4 files found in {input_path}")
+            print(f"No supported video files found in {input_path}")
             return 0
         exit_code = 0
         for mp4 in mp4s:

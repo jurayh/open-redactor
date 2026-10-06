@@ -35,12 +35,32 @@ class VideoInfo:
     has_audio: bool
 
 
+SUPPORTED_INPUT_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
+
+
+def ensure_mp4_for_api(path: Path, tmp_dir: Path) -> Path:
+    """Return an MP4 version of the input for APIs that take MP4 data URIs.
+
+    The pipeline itself reads any supported format with OpenCV. Only the
+    SAM API upload needs MP4, so non-MP4 inputs are transcoded once into
+    a temp file that lives for the duration of the run.
+    """
+    if path.suffix.lower() == ".mp4":
+        return path
+    out = tmp_dir / (path.stem + ".api.mp4")
+    cmd = ["ffmpeg", "-y", "-v", "error", "-i", str(path), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an", str(out)]
+    subprocess.check_call(cmd)
+    print(f"Transcoded {path.suffix} input to MP4 for the SAM API: {out.name}")
+    return out
+
+
 def probe_video(path: Path) -> VideoInfo:
     """Probe a video with ffprobe and return basic info."""
     if not path.exists():
         raise FileNotFoundError(f"Input not found: {path}")
-    if path.suffix.lower() != ".mp4":
-        raise ValueError("v1 accepts MP4 input only")
+    if path.suffix.lower() not in SUPPORTED_INPUT_SUFFIXES:
+        supported = ", ".join(sorted(SUPPORTED_INPUT_SUFFIXES))
+        raise ValueError(f"Unsupported input format '{path.suffix}'. Supported inputs: {supported}. Output is always MP4.")
 
     cmd = [
         "ffprobe",
@@ -364,11 +384,19 @@ def run_pipeline(
     else:
         raise ValueError(f"Unknown backend '{resolved_backend}'. Choose api, hosted, or local.")
 
+    # API and hosted backends need an MP4 upload. Local providers read the original.
+    api_input = input_path
+    _api_tmp = None
+    if resolved_backend in ("api", "hosted") and input_path.suffix.lower() != ".mp4":
+        import tempfile
+        _api_tmp = tempfile.TemporaryDirectory(prefix="open-redactor-api-")
+        api_input = ensure_mp4_for_api(input_path, Path(_api_tmp.name))
+
     all_tracks: Dict[str, Dict[int, np.ndarray]] = {}
     total_objects = 0
     for phrase in targets:
         try:
-            result: SegmentationResult = client.segment_video(input_path, phrase, shape=shape)  # type: ignore[arg-type]
+            result: SegmentationResult = client.segment_video(api_input, phrase, shape=shape)  # type: ignore[arg-type]
         except Exception as exc:
             # API failures fall back to empty result with a clear log so the run still writes a copy
             print(f"Warning: SAM failed for phrase '{phrase}': {exc}")
