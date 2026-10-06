@@ -150,12 +150,19 @@ class LocalGroundingSamClient:
                 inputs = self._gd_processor(images=image, text=[[phrase]], return_tensors="pt").to(self.device)
                 outputs = self._gd(**inputs)
                 target_sizes = [(height, width)]
+                # transformers 5 renamed box_threshold to threshold
+                import inspect
+
+                gd_params = inspect.signature(
+                    self._gd_processor.post_process_grounded_object_detection
+                ).parameters
+                box_kwarg = "threshold" if "threshold" in gd_params else "box_threshold"
                 detections = self._gd_processor.post_process_grounded_object_detection(
                     outputs,
                     inputs.input_ids,
-                    box_threshold=self.box_threshold,
                     text_threshold=self.text_threshold,
                     target_sizes=target_sizes,
+                    **{box_kwarg: self.box_threshold},
                 )[0]
                 boxes: List[Box] = [tuple(map(float, b)) for b in detections["boxes"].tolist()]
                 if boxes:
@@ -163,7 +170,7 @@ class LocalGroundingSamClient:
                     # SAM 2 image segmentation from box prompts
                     sam_inputs = self._sam_processor(
                         images=image,
-                        input_boxes=[boxes],
+                        input_boxes=[[list(b) for b in boxes]],
                         return_tensors="pt",
                     ).to(self.device)
                     sam_outputs = self._sam(**sam_inputs)
@@ -184,14 +191,15 @@ class LocalGroundingSamClient:
                             ).astype(bool)
                         key = str(tid)
                         result.tracks.setdefault(key, {})[frame_idx] = mask_bool
-                        if frame_idx == 0 or key not in [o.object_id for o in result.objects]:
-                            if key not in [o.object_id for o in result.objects]:
-                                result.objects.append(
-                                    DetectedObject(object_id=key, phrase=phrase, frames={})
-                                )
-                        for obj in result.objects:
-                            if obj.object_id == key:
-                                obj.frames[frame_idx] = boxes[i]
+                        result.objects.append(
+                            DetectedObject(
+                                track_id=key,
+                                frame_index=frame_idx,
+                                box=tuple(int(round(v)) for v in boxes[i]),
+                                mask=mask_bool,
+                                phrase=phrase,
+                            )
+                        )
                 frame_idx += 1
         cap.release()
         print(f"Local Grounding SAM: '{phrase}' produced {len(result.tracks)} tracks over {frame_idx} frames")
