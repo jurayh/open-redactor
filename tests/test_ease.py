@@ -6,7 +6,7 @@ from open_redactor.sam_client import cache_key_for
 
 
 def test_presets_exist():
-    assert set(PRESETS) == {"family", "street", "screen-share", "documents"}
+    assert set(PRESETS) == {"family", "street", "screen-share", "documents", "location"}
     fam = apply_preset("family")
     assert "face" in fam["targets"]
     assert fam["carry_frames"] >= 4

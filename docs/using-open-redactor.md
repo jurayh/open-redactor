@@ -39,3 +39,7 @@ Formats are MP4 in and MP4 out in v1.
 ## Sensitive documents
 
 Use --preset documents --pii-text for passports, bank cards, driver licenses, and paperwork. The preset blurs the physical objects. The text layer blurs printed numbers and addresses found by OCR, with Luhn verification for card numbers so order numbers and timestamps stay untouched. A passport held to camera is covered as an object even when its number is too small to read, and a card number typed on a screen share is covered as text even with no physical card in frame. You need both layers for document work.
+
+## Codes, location, and badges
+
+--codes covers QR codes and barcodes, --preset location covers street signs, house numbers, plates, and mailboxes, and name badges and lanyards are part of the documents preset. --sensitive turns on the text and codes layers together and pairs well with the documents and location presets.

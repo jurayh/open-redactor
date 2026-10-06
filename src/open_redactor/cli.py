@@ -32,6 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--preset", choices=sorted(PRESETS.keys()), default=None, help="Use a preset: family, street, screen-share, or documents")
     p.add_argument("--no-cache", action="store_true", help="Do not reuse cached SAM results")
     p.add_argument("--pii-text", action="store_true", help="Also OCR sampled frames for card numbers, SSNs, phones, and emails and blur them")
+    p.add_argument("--codes", action="store_true", help="Also detect and cover QR codes and barcodes in sampled frames")
+    p.add_argument("--sensitive", action="store_true", help="Turn on --pii-text and --codes together")
     p.add_argument("--provider", choices=["sam", "grounding-sam"], default=None, help="Model provider: SAM via API or hosted, or Grounding SAM locally")
     p.add_argument("--backend", choices=["api", "hosted", "local"], default=None, help="Where SAM runs: Meta Model API, your own hosted endpoint, or local open weights")
     p.add_argument("--endpoint", default=None, help="Responses API endpoint for the hosted backend, or set OPEN_REDACTOR_ENDPOINT")
@@ -73,6 +75,7 @@ def process_one(
     endpoint: str | None = None,
     provider: str | None = None,
     pii_text: bool = False,
+    codes: bool = False,
 ) -> int:
     out = output_path if output_path else default_output_path(input_path)
     if output_path is not None:
@@ -100,6 +103,7 @@ def process_one(
             endpoint=endpoint,
             provider=provider,
             pii_text=pii_text,
+            codes=codes,
         )
         return 0
     except FileNotFoundError as exc:
@@ -183,7 +187,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 backend=args.backend,
                 endpoint=args.endpoint,
                 provider=args.provider,
-                pii_text=args.pii_text,
+                pii_text=args.pii_text or args.sensitive,
+                codes=args.codes or args.sensitive,
             )
             if code != 0:
                 exit_code = code
@@ -215,7 +220,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         backend=args.backend,
         endpoint=args.endpoint,
         provider=args.provider,
-        pii_text=args.pii_text,
+        pii_text=args.pii_text or args.sensitive,
+        codes=args.codes or args.sensitive,
     )
 
 

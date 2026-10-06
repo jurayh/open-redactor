@@ -328,6 +328,7 @@ def run_pipeline(
     endpoint: str | None = None,
     provider: str | None = None,
     pii_text: bool = False,
+    codes: bool = False,
 ) -> Dict[str, object]:
     """Run the full redaction pipeline and return a summary dict.
 
@@ -399,6 +400,25 @@ def run_pipeline(
                     mask_map[fidx] = m
             if mask_map:
                 all_tracks[f"pii:{track_key}"] = mask_map
+                total_objects += 1
+
+    # Optional codes layer: QR codes and barcodes covered as boxes
+    if codes:
+        from .codes import CodeScanner
+        code_tracks = CodeScanner().scan_frames(frames)
+        for track_key, frame_boxes in code_tracks.items():
+            mask_map: Dict[int, np.ndarray] = {}
+            for fidx, boxes in frame_boxes.items():
+                m = np.zeros(shape, dtype=bool)
+                for (x1, y1, x2, y2) in boxes:
+                    x1c, x2c = max(0, x1), min(shape[1], x2)
+                    y1c, y2c = max(0, y1), min(shape[0], y2)
+                    if x2c > x1c and y2c > y1c:
+                        m[y1c:y2c, x1c:x2c] = True
+                if np.any(m):
+                    mask_map[fidx] = m
+            if mask_map:
+                all_tracks[f"code:{track_key}"] = mask_map
                 total_objects += 1
 
     if total_objects == 0:

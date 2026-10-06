@@ -21,10 +21,18 @@ PRESETS: dict[str, dict] = {
     },
     "documents": {
         "description": "Passports, cards, IDs, and paperwork on camera or on screen. Pair with --pii-text for numbers",
-        "targets": ["passport", "credit card", "driver license", "id card", "document"],
+        "targets": ["passport", "credit card", "driver license", "id card", "document", "name badge", "lanyard"],
         "mode": "blur",
         "strength": 41,
         "mask_margin": 12,
+        "carry_frames": 6,
+    },
+    "location": {
+        "description": "House numbers, street signs, plates, and mailboxes that reveal where you live",
+        "targets": ["street sign", "house number", "license plate", "mailbox"],
+        "mode": "blur",
+        "strength": 35,
+        "mask_margin": 14,
         "carry_frames": 6,
     },
     "screen-share": {

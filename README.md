@@ -127,11 +127,13 @@ open-redactor input.mp4 --mask-margin 12 --carry-frames 5 --contact-sheet
 Passports, cards, and IDs need two layers. The documents preset covers the objects, passport, credit card, driver license, id card, and document, with strong blur. The text layer covers what is printed on them.
 
 ```bash
-open-redactor clip.mp4 --preset documents --pii-text
+open-redactor clip.mp4 --preset documents --sensitive
 ```
 
 --pii-text OCRs sampled frames and blurs verified card numbers, US Social Security numbers, phone numbers, and emails where they appear. Card numbers must pass the Luhn check and SSNs must pass issuing rules, so random long numbers do not trigger false blurs. Text scanning needs pip install "open-redactor[pii]" plus the tesseract binary, and it skips cleanly with a message when they are missing.
 
+
+Extensions in the same spirit. --codes covers QR codes and barcodes in sampled frames, verified here against a real generated QR code, because codes carry Wi-Fi passwords, payment links, and contact cards. The location preset covers street signs, house numbers, plates, and mailboxes for walkthroughs and dashcam clips. Name badges and lanyards joined the documents preset for conference and workplace footage. --sensitive is the one flag that turns on both the text layer and the codes layer.
 
 ## Where SAM runs
 
