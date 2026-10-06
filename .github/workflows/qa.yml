@@ -1,0 +1,137 @@
+name: QA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Unit and integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg tesseract-ocr
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,pii,server]"
+      - name: Run tests
+        run: python -m pytest -q
+      - name: Build and check distributions
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python -m twine check dist/*
+
+  action-audit:
+    name: GitHub Action audit behavior
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit a clean clip
+        uses: ./
+        with:
+          path: eval/data/blank.mp4
+          task: audit
+          backend: local
+          sensitive: "true"
+          fail-on: medium
+          output-dir: qa-clean-audit
+      - name: Audit a QR clip
+        id: audit-qr
+        continue-on-error: true
+        uses: ./
+        with:
+          path: eval/data/qr.mp4
+          task: audit
+          backend: local
+          sensitive: "true"
+          fail-on: high
+          output-dir: qa-qr-audit
+      - name: Verify the QR audit failed as designed
+        run: |
+          test "${{ steps.audit-qr.outcome }}" = "failure"
+          test -f qa-qr-audit/qr.audit.summary.json
+          grep -q '"high": 2' qa-qr-audit/qr.audit.summary.json
+      - name: Upload audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: action-audit-reports
+          path: |
+            qa-clean-audit
+            qa-qr-audit
+
+  action-redact:
+    name: GitHub Action redact behavior
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Redact the QR clip
+        id: redact-qr
+        uses: ./
+        with:
+          path: eval/data/qr.mp4
+          task: redact
+          backend: local
+          sensitive: "true"
+          mode: blur
+          output-dir: qa-redacted
+      - name: Verify the redacted QR cannot be decoded
+        run: |
+          test -f "${{ steps.redact-qr.outputs.result-path }}"
+          python - <<'PY'
+          import cv2
+          from pathlib import Path
+          path = Path("${{ steps.redact-qr.outputs.result-path }}")
+          cap = cv2.VideoCapture(str(path))
+          ok, frame = cap.read()
+          cap.release()
+          assert ok, "redacted output has no readable frame"
+          data, _points, _straight = cv2.QRCodeDetector().detectAndDecode(frame)
+          assert not data, f"QR payload survived redaction: {data!r}"
+          print("QR payload is not decodable")
+          PY
+      - name: Upload redacted sample
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: action-redacted-sample
+          path: qa-redacted
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t open-redactor:qa .
+      - name: Redact the QR clip in the container
+        run: |
+          mkdir -p qa-docker
+          cp eval/data/qr.mp4 qa-docker/qr.mp4
+          docker run --rm -v "$PWD/qa-docker:/work" open-redactor:qa qr.mp4 --local --codes --output qr.redacted.mp4
+          test -f qa-docker/qr.redacted.mp4
+      - name: Verify the container output cannot be decoded
+        run: |
+          docker run --rm -i --entrypoint python -v "$PWD/qa-docker:/work" open-redactor:qa - <<'PY'
+          import cv2
+          cap = cv2.VideoCapture("/work/qr.redacted.mp4")
+          ok, frame = cap.read()
+          cap.release()
+          assert ok, "container output has no readable frame"
+          data, _points, _straight = cv2.QRCodeDetector().detectAndDecode(frame)
+          assert not data, f"QR payload survived container redaction: {data!r}"
+          print("Container QR payload is not decodable")
+          PY
