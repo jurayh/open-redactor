@@ -12,6 +12,13 @@ These commands show the v1 flows from the spec. Media from a live SAM 3.1 run li
 
 Source for the showcase was a short public portrait clip. Phrase was face. SAM returned one track across all 50 frames.
 
+## Top demos
+
+- media/documents-demo.gif and documents-demo.jpg: a passport and bank card scene run through live SAM 3.1, blurred side by side
+- media/screen-share-demo.jpg: a checkout form where the text layer replaced a card number, email, and phone with fakes
+- media/walkthrough.gif: shadow, preview, run, and analytics from a real terminal transcript
+- The text layer now supports two OCR engines, tesseract or RapidOCR, whichever is installed
+
 ## Full feature tour
 
 - media/replace-demo.jpg shows replace mode on a synthetic scene, avatar for the person and a fake plaque for the house number

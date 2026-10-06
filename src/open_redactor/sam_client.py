@@ -318,10 +318,9 @@ class SamApiClient:
         """
         if httpx is None:
             raise RuntimeError("httpx is required for API mode. Install with pip install httpx")
-        if not self.api_key:
-            raise RuntimeError("No API key found. Set the env var named by --api-key-env")
 
-        # Cache check. A hit avoids paying for detection again on re-renders.
+        # Cache check first. A hit avoids paying for detection again on
+        # re-renders and works with no key at all, fully offline.
         cache_path: Optional[Path] = None
         if self.use_cache:
             try:
@@ -333,6 +332,8 @@ class SamApiClient:
                     return parse_output_text(cached, phrase=phrase, shape=shape)
             except Exception:
                 cache_path = None
+        if not self.api_key:
+            raise RuntimeError("No API key found. Set the env var named by --api-key-env")
 
         body = build_request_body(phrase, video_path, stream=True)
         headers = {
@@ -395,8 +396,6 @@ class SamApiClient:
         """Run one phrase against one photo via the image API shape."""
         if httpx is None:
             raise RuntimeError("httpx is required for API mode. Install with pip install httpx")
-        if not self.api_key:
-            raise RuntimeError("No API key found. Set the env var named by --api-key-env")
         cache_path: Optional[Path] = None
         if self.use_cache:
             try:
@@ -407,6 +406,8 @@ class SamApiClient:
                     return parse_output_text(cache_path.read_text(), phrase=phrase, shape=shape)
             except Exception:
                 cache_path = None
+        if not self.api_key:
+            raise RuntimeError("No API key found. Set the env var named by --api-key-env")
         image_b64 = base64.b64encode(image_path.read_bytes()).decode()
         body = build_image_request_body(phrase, image_b64, stream=True)
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}

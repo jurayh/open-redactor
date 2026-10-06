@@ -83,14 +83,26 @@ def find_pii_in_text(text: str) -> List[PiiHit]:
     return sorted(hits, key=lambda h: h.start)
 
 
-def ocr_available() -> bool:
+def ocr_engine() -> str | None:
+    """Return the available OCR engine name: tesseract or rapidocr."""
     try:
         import pytesseract  # noqa: F401
         import shutil
 
-        return shutil.which("tesseract") is not None
+        if shutil.which("tesseract") is not None:
+            return "tesseract"
     except Exception:
-        return False
+        pass
+    try:
+        import rapidocr_onnxruntime  # noqa: F401
+
+        return "rapidocr"
+    except Exception:
+        return None
+
+
+def ocr_available() -> bool:
+    return ocr_engine() is not None
 
 
 @dataclass
@@ -107,12 +119,16 @@ class PiiScanner:
         next sample, which matches how documents sit still on screen. The
         pipeline carry logic handles the final smoothing.
         """
-        if not ocr_available():
+        engine = ocr_engine()
+        if engine is None:
             print(
-                "Text PII scan needs pytesseract and the tesseract binary. "
-                "Skipping text scan, object targets still run."
+                "Text PII scan needs an OCR engine: pytesseract plus the "
+                "tesseract binary, or rapidocr-onnxruntime. Skipping text "
+                "scan, object targets still run."
             )
             return {}
+        if engine == "rapidocr":
+            return self._scan_with_rapidocr(frames)
         import pytesseract
         from PIL import Image
 
@@ -163,5 +179,35 @@ class PiiScanner:
                     hold_until = min(total, idx + max(1, self.sample_every))
                     for f in range(idx, hold_until):
                         result.setdefault(track_key, {}).setdefault(f, []).append((x1, y1, x2, y2))
+                    print(f"Text PII: {hit.kind} found near frame {idx}")
+        return result
+
+
+    def _scan_with_rapidocr(self, frames) -> Dict[str, Dict[int, List[Box]]]:
+        """RapidOCR returns line boxes with text, which maps straight to hits."""
+        from rapidocr_onnxruntime import RapidOCR
+
+        engine = RapidOCR()
+        result: Dict[str, Dict[int, List[Box]]] = {}
+        counters: Dict[str, int] = {}
+        total = len(frames)
+        for idx in range(0, total, max(1, self.sample_every)):
+            frame = frames[idx]
+            ocr_result, _elapsed = engine(frame)
+            if not ocr_result:
+                continue
+            for points, text, _score in ocr_result:
+                hits = find_pii_in_text(str(text))
+                if not hits:
+                    continue
+                xs = [pt[0] for pt in points]
+                ys = [pt[1] for pt in points]
+                box = (int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys)))
+                for hit in hits:
+                    counters[hit.kind] = counters.get(hit.kind, 0) + 1
+                    track_key = f"{hit.kind}:{counters[hit.kind]}"
+                    hold_until = min(total, idx + max(1, self.sample_every))
+                    for f in range(idx, hold_until):
+                        result.setdefault(track_key, {}).setdefault(f, []).append(box)
                     print(f"Text PII: {hit.kind} found near frame {idx}")
         return result

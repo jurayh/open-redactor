@@ -19,6 +19,21 @@ open-redactor clip.mp4 --preset family                # the full run
 open-redactor clip.mp4 --preset family --mode pixelate  # re-render free, detection is cached
 ```
 
+## Demos
+
+**Documents in hand.** A passport and a bank card on a desk, found by live SAM 3.1 and blurred with the documents targets. Original on the left, redacted on the right.
+
+![Documents demo](examples/media/documents-demo.gif)
+
+**The screen share save.** Nothing physical to detect here, a checkout form in a screen recording. The text layer alone caught the card number, email, and phone, and replace mode swapped in fakes: a different format valid card number, person@example.com, and a 555 number.
+
+![Screen share demo](examples/media/screen-share-demo.jpg)
+
+**The full loop in one minute.** Shadow audit, preview, full run, and analytics on one clip, from a real terminal transcript. The audit grades the passport critical before anything is touched.
+
+![Walkthrough](examples/media/walkthrough.gif)
+
+
 ## What it catches
 
 **People and places, by phrase.** Person, face, license plate, screen, and anything else you name in a short noun phrase. The tracker holds each one across time, pads the mask, and carries it through brief dropouts so the output never flashes clean.
