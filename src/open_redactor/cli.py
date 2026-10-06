@@ -34,6 +34,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--pii-text", action="store_true", help="Also OCR sampled frames for card numbers, SSNs, phones, and emails and blur them")
     p.add_argument("--codes", action="store_true", help="Also detect and cover QR codes and barcodes in sampled frames")
     p.add_argument("--sensitive", action="store_true", help="Turn on --pii-text and --codes together")
+    p.add_argument("--audio", choices=["keep", "mute", "pitch"], default="keep", help="Audio redaction: keep the original track, mute it, or pitch shift voices")
+    p.add_argument("--pitch-factor", type=float, default=0.8, help="Pitch multiplier for --audio pitch. Below 1 deepens, above 1 raises")
     p.add_argument("--provider", choices=["sam", "grounding-sam"], default=None, help="Model provider: SAM via API or hosted, or Grounding SAM locally")
     p.add_argument("--backend", choices=["api", "hosted", "local"], default=None, help="Where SAM runs: Meta Model API, your own hosted endpoint, or local open weights")
     p.add_argument("--endpoint", default=None, help="Responses API endpoint for the hosted backend, or set OPEN_REDACTOR_ENDPOINT")
@@ -76,6 +78,8 @@ def process_one(
     provider: str | None = None,
     pii_text: bool = False,
     codes: bool = False,
+    audio_mode: str = "keep",
+    pitch_factor: float = 0.8,
 ) -> int:
     out = output_path if output_path else default_output_path(input_path)
     if output_path is not None:
@@ -104,6 +108,8 @@ def process_one(
             provider=provider,
             pii_text=pii_text,
             codes=codes,
+            audio_mode=audio_mode,
+            pitch_factor=pitch_factor,
         )
         return 0
     except FileNotFoundError as exc:
@@ -190,6 +196,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 provider=args.provider,
                 pii_text=args.pii_text or args.sensitive,
                 codes=args.codes or args.sensitive,
+                audio_mode=args.audio,
+                pitch_factor=args.pitch_factor,
             )
             if code != 0:
                 exit_code = code
@@ -252,6 +260,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         provider=args.provider,
         pii_text=args.pii_text or args.sensitive,
         codes=args.codes or args.sensitive,
+        audio_mode=args.audio,
+        pitch_factor=args.pitch_factor,
     )
 
 

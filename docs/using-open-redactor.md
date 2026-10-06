@@ -26,7 +26,7 @@ API and hosted modes send the clip to the endpoint you chose. Local mode and the
 
 ## Honest limits
 
-Audio is not redacted in v1. Voices, spoken names, and background speech can still identify someone, so listen before sharing.
+Audio defaults to keep, so the original voices ship unless you choose otherwise. --audio mute removes the track entirely. --audio pitch shifts voices with pitch factor 0.8 by default while keeping tempo and duration, so speech stays understandable but no longer sounds like the real speaker. If pitch shifting fails the run writes no audio rather than leaking the original track.
 
 Preview renders only the first 3 seconds. A clean preview does not prove the whole clip, the coverage report on the full run is the audit.
 

@@ -103,7 +103,7 @@ open-redactor input.mp4 --preset street
 open-redactor input.mp4 --preset screen-share
 ```
 
-Family uses generous blur, street pixelates people and plates, screen-share blurs screens and faces. Rendering prints progress with an ETA. SAM results are cached under your home cache folder so changing blur strength and re-rendering does not pay for detection again, use --no-cache to force a fresh call. Output naming never overwrites the original or an earlier redacted file, a suffix is added instead. A local drag and drop page is available with open-redactor --ui and binds only to 127.0.0.1. Audio is still not redacted, so check voices before sharing.
+Family uses generous blur, street pixelates people and plates, screen-share blurs screens and faces. Rendering prints progress with an ETA. SAM results are cached under your home cache folder so changing blur strength and re-rendering does not pay for detection again, use --no-cache to force a fresh call. Output naming never overwrites the original or an earlier redacted file, a suffix is added instead. A local drag and drop page is available with open-redactor --ui and binds only to 127.0.0.1. Audio defaults to the original track. Use --audio mute or --audio pitch when voices identify someone.
 
 ## Quick start
 

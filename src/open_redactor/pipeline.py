@@ -184,6 +184,26 @@ def apply_redaction_to_frame(
     return out
 
 
+AUDIO_MODES = ("keep", "mute", "pitch")
+
+
+def audio_filter_for(mode: str, pitch_factor: float = 0.8) -> str | None:
+    """Return the ffmpeg audio filter for a mode, or None to drop audio.
+
+    keep copies the source track. mute returns an empty string sentinel
+    handled by the caller, which simply omits the audio stream. pitch
+    shifts voices down with rubberband while keeping tempo and duration,
+    so speech stays intelligible but no longer sounds like the speaker.
+    """
+    if mode not in AUDIO_MODES:
+        raise ValueError(f"Unknown audio mode '{mode}'. Choose keep, mute, or pitch.")
+    if mode == "keep":
+        return None
+    if mode == "mute":
+        return ""
+    return f"rubberband=pitch={pitch_factor}"
+
+
 def render_video(
     frames: List[np.ndarray],
     masks: List[np.ndarray],
@@ -191,6 +211,8 @@ def render_video(
     output_path: Path,
     mode: str = "blur",
     strength: int = 21,
+    audio_mode: str = "keep",
+    pitch_factor: float = 0.8,
 ) -> Path:
     """Render redacted frames to MP4 and mux audio when present."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -217,33 +239,62 @@ def render_video(
     writer.release()
 
     if info.has_audio:
-        # Mux audio from source
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-v",
-            "error",
-            "-i",
-            str(tmp_path),
-            "-i",
-            str(info.path),
-            "-c:v",
-            "libx264",
-            "-c:a",
-            "copy",
-            "-map",
-            "0:v:0",
-            "-map",
-            "1:a:0",
-            "-shortest",
-            str(output_path),
-        ]
+        # Mux audio from source, applying the audio redaction mode
+        afilter = audio_filter_for(audio_mode, pitch_factor=pitch_factor)
+        if afilter == "":
+            print("Audio: muted, output has no audio track")
+            cmd = [
+                "ffmpeg", "-y", "-v", "error",
+                "-i", str(tmp_path),
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an",
+                str(output_path),
+            ]
+        elif afilter:
+            print(f"Audio: pitch shifted by factor {pitch_factor}, tempo preserved")
+            cmd = [
+                "ffmpeg", "-y", "-v", "error",
+                "-i", str(tmp_path),
+                "-i", str(info.path),
+                "-c:v", "libx264",
+                "-af", afilter,
+                "-c:a", "aac",
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-shortest",
+                str(output_path),
+            ]
+        else:
+            cmd = [
+                "ffmpeg", "-y", "-v", "error",
+                "-i", str(tmp_path),
+                "-i", str(info.path),
+                "-c:v", "libx264",
+                "-c:a", "copy",
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-shortest",
+                str(output_path),
+            ]
         try:
             subprocess.check_call(cmd)
             tmp_path.unlink(missing_ok=True)
             return output_path
-        except Exception:
-            # Fall back to video-only file
+        except Exception as exc:
+            if audio_mode != "keep":
+                # Never silently ship original audio when redaction failed
+                print(f"Audio redaction failed ({exc}). Writing video with no audio instead of the original track.")
+                fallback = [
+                    "ffmpeg", "-y", "-v", "error",
+                    "-i", str(tmp_path),
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an",
+                    str(output_path),
+                ]
+                try:
+                    subprocess.check_call(fallback)
+                    tmp_path.unlink(missing_ok=True)
+                    return output_path
+                except Exception:
+                    pass
             tmp_path.replace(output_path)
             return output_path
     else:
@@ -349,6 +400,8 @@ def run_pipeline(
     provider: str | None = None,
     pii_text: bool = False,
     codes: bool = False,
+    audio_mode: str = "keep",
+    pitch_factor: float = 0.8,
 ) -> Dict[str, object]:
     """Run the full redaction pipeline and return a summary dict.
 
@@ -476,6 +529,7 @@ def run_pipeline(
             total_frames=total_frames,
             carry_frames=carry_frames,
             targets=targets,
+            audio_mode=audio_mode,
         )
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report_text)
@@ -497,6 +551,8 @@ def run_pipeline(
             output_path=preview_output,
             mode=mode,
             strength=strength,
+            audio_mode=audio_mode,
+            pitch_factor=pitch_factor,
         )
         print(f"Preview sample: {preview_output} ({sample_frames} frames)")
         contact_path = output_path.with_suffix(".contact.png")
@@ -522,7 +578,11 @@ def run_pipeline(
         output_path=output_path,
         mode=mode,
         strength=strength,
+        audio_mode=audio_mode,
+        pitch_factor=pitch_factor,
     )
+    if info.has_audio and audio_mode != "keep":
+        print(f"Audio redaction applied: {audio_mode}")
     print(f"Wrote: {output_path}")
 
     contact_path = None

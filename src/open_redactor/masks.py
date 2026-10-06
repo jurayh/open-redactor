@@ -219,6 +219,7 @@ def build_coverage_report(
     total_frames: int,
     carry_frames: int,
     targets: List[str],
+    audio_mode: str = "keep",
 ) -> str:
     """Build a plain text coverage report.
 
@@ -270,5 +271,10 @@ def build_coverage_report(
     else:
         lines.append("Uncovered gaps longer than carry window: 0")
         lines.append("Result: continuous coverage inside track spans with current carry settings.")
-    lines.append("Note: audio is not redacted in v1 and voices can still identify people.")
+    if audio_mode == "mute":
+        lines.append("Audio: muted, the output has no audio track.")
+    elif audio_mode == "pitch":
+        lines.append("Audio: pitch shifted, voices are disguised but speech remains.")
+    else:
+        lines.append("Note: audio mode is keep, so original voices can still identify people. Use --audio mute or --audio pitch to redact them.")
     return "\n".join(lines) + "\n"

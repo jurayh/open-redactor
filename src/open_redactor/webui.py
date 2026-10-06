@@ -11,7 +11,7 @@ from pathlib import Path
 
 PAGE = """<!doctype html><html><head><meta charset=utf-8><title>Open Redactor</title>
 <style>body{font-family:system-ui;max-width:720px;margin:40px auto;padding:0 20px} .drop{border:2px dashed #888;border-radius:16px;padding:40px;text-align:center}</style></head>
-<body><h1>Open Redactor</h1><p>Drop an MP4, pick a preset, get a redacted copy. Files stay on this machine. Audio is not redacted in v1, so check voices before sharing.</p>
+<body><h1>Open Redactor</h1><p>Drop an MP4, pick a preset, get a redacted copy. Files stay on this machine. Audio keeps the original voices by default in the CLI, choose --audio mute or pitch there when voices identify someone.</p>
 <form method=post enctype=multipart/form-data action=/run>
 <div class=drop><input type=file name=video accept="video/mp4" required></div>
 <p>Preset <select name=preset><option>family</option><option>street</option><option>screen-share</option></select>
