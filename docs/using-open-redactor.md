@@ -35,3 +35,7 @@ Pixel-perfect masks need Node and @meta-sam/parser on the machine. Without them 
 Detection can miss. Padding, carry-forward, and gap flags reduce the leak risk, and the contact sheet is your final human check. Treat any NEEDS REVIEW line in a coverage report as a stop before sharing.
 
 Formats are MP4 in and MP4 out in v1.
+
+## Sensitive documents
+
+Use --preset documents --pii-text for passports, bank cards, driver licenses, and paperwork. The preset blurs the physical objects. The text layer blurs printed numbers and addresses found by OCR, with Luhn verification for card numbers so order numbers and timestamps stay untouched. A passport held to camera is covered as an object even when its number is too small to read, and a card number typed on a screen share is covered as text even with no physical card in frame. You need both layers for document work.

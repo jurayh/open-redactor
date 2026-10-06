@@ -327,6 +327,7 @@ def run_pipeline(
     backend: str | None = None,
     endpoint: str | None = None,
     provider: str | None = None,
+    pii_text: bool = False,
 ) -> Dict[str, object]:
     """Run the full redaction pipeline and return a summary dict.
 
@@ -379,6 +380,26 @@ def run_pipeline(
                 all_tracks[key] = {}
             for fidx, m in frame_map.items():
                 all_tracks[key][fidx] = m
+
+    # Optional text PII layer: OCR numbers and IDs that object phrases miss
+    if pii_text:
+        from .pii import PiiScanner
+        scanner = PiiScanner()
+        pii_tracks = scanner.scan_frames(frames)
+        for track_key, frame_boxes in pii_tracks.items():
+            mask_map: Dict[int, np.ndarray] = {}
+            for fidx, boxes in frame_boxes.items():
+                m = np.zeros(shape, dtype=bool)
+                for (x1, y1, x2, y2) in boxes:
+                    x1c, x2c = max(0, x1), min(shape[1], x2)
+                    y1c, y2c = max(0, y1), min(shape[0], y2)
+                    if x2c > x1c and y2c > y1c:
+                        m[y1c:y2c, x1c:x2c] = True
+                if np.any(m):
+                    mask_map[fidx] = m
+            if mask_map:
+                all_tracks[f"pii:{track_key}"] = mask_map
+                total_objects += 1
 
     if total_objects == 0:
         print("Nothing matched. Writing a clean copy.")

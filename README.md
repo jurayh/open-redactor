@@ -122,6 +122,17 @@ open-redactor input.mp4 --mode pixelate --strength 24
 open-redactor input.mp4 --mask-margin 12 --carry-frames 5 --contact-sheet
 ```
 
+## Sensitive documents
+
+Passports, cards, and IDs need two layers. The documents preset covers the objects, passport, credit card, driver license, id card, and document, with strong blur. The text layer covers what is printed on them.
+
+```bash
+open-redactor clip.mp4 --preset documents --pii-text
+```
+
+--pii-text OCRs sampled frames and blurs verified card numbers, US Social Security numbers, phone numbers, and emails where they appear. Card numbers must pass the Luhn check and SSNs must pass issuing rules, so random long numbers do not trigger false blurs. Text scanning needs pip install "open-redactor[pii]" plus the tesseract binary, and it skips cleanly with a message when they are missing.
+
+
 ## Where SAM runs
 
 SAM 3.1 is open weights, so the backend is a choice, not an assumption. API is the Meta Model API and works today with no GPU. Hosted points the same request at your own endpoint with --backend hosted and --endpoint. Local runs Grounding SAM, Grounding DINO plus SAM 2 with IoU tracking, on your own hardware so footage never leaves the device. Install it with pip install "open-redactor[local]". Full notes in [docs/using-open-redactor.md](docs/using-open-redactor.md).

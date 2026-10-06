@@ -29,8 +29,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-report", action="store_true", help="Skip the coverage report")
     p.add_argument("--local", action="store_true", help="Run open weights on device and send nothing to the API")
     p.add_argument("--api-key-env", default="MODEL_API_KEY", help="Name the environment variable that holds the API key")
-    p.add_argument("--preset", choices=sorted(PRESETS.keys()), default=None, help="Use a preset: family, street, or screen-share")
+    p.add_argument("--preset", choices=sorted(PRESETS.keys()), default=None, help="Use a preset: family, street, screen-share, or documents")
     p.add_argument("--no-cache", action="store_true", help="Do not reuse cached SAM results")
+    p.add_argument("--pii-text", action="store_true", help="Also OCR sampled frames for card numbers, SSNs, phones, and emails and blur them")
     p.add_argument("--provider", choices=["sam", "grounding-sam"], default=None, help="Model provider: SAM via API or hosted, or Grounding SAM locally")
     p.add_argument("--backend", choices=["api", "hosted", "local"], default=None, help="Where SAM runs: Meta Model API, your own hosted endpoint, or local open weights")
     p.add_argument("--endpoint", default=None, help="Responses API endpoint for the hosted backend, or set OPEN_REDACTOR_ENDPOINT")
@@ -71,6 +72,7 @@ def process_one(
     backend: str | None = None,
     endpoint: str | None = None,
     provider: str | None = None,
+    pii_text: bool = False,
 ) -> int:
     out = output_path if output_path else default_output_path(input_path)
     if output_path is not None:
@@ -97,6 +99,7 @@ def process_one(
             backend=backend,
             endpoint=endpoint,
             provider=provider,
+            pii_text=pii_text,
         )
         return 0
     except FileNotFoundError as exc:
@@ -180,6 +183,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 backend=args.backend,
                 endpoint=args.endpoint,
                 provider=args.provider,
+                pii_text=args.pii_text,
             )
             if code != 0:
                 exit_code = code
@@ -211,6 +215,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         backend=args.backend,
         endpoint=args.endpoint,
         provider=args.provider,
+        pii_text=args.pii_text,
     )
 
 
