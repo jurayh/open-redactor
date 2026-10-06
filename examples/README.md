@@ -12,6 +12,23 @@ These commands show the v1 flows from the spec. Media from a live SAM 3.1 run li
 
 Source for the showcase was a short public portrait clip. Phrase was face. SAM returned one track across all 50 frames.
 
+## Full feature tour
+
+- media/replace-demo.jpg shows replace mode on a synthetic scene, avatar for the person and a fake plaque for the house number
+- shadow-audit-sample.txt is a real shadow audit from a clip carrying a QR code
+- Run the tour yourself: shadow audit first, then --preview, then a preset run, then a --mode replace re-render from cache
+
+## Shadow audit, analytics, replace, audio
+
+```bash
+open-redactor input.mp4 --shadow --preset documents --sensitive
+open-redactor input.mp4 --mode replace --preset location
+open-redactor input.mp4 --audio pitch
+open-redactor input.mp4 --audio mute
+```
+
+Every normal run writes a .summary.json next to the output with elements, severities, and frames affected.
+
 ## Worked example 1. Family day out
 
 One short portrait clip, family preset, face phrase from a live SAM 3.1 run.

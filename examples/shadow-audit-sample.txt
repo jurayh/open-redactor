@@ -1,0 +1,10 @@
+Open Redactor analytics
+Mode: shadow audit, nothing was redacted or rendered
+Frames affected: 20 of 20 (100%)
+Elements: 2 total, 0 critical, 2 high, 0 medium
+Exposure score before action: 6.0
+Audio: Audio kept. Original voices remain a separate identifying channel.
+
+Most sensitive first:
+- [HIGH] code:code:1: 10 frames, frames 0 to 9
+- [HIGH] code:code:2: 10 frames, frames 10 to 19
