@@ -119,6 +119,32 @@ open-redactor clip.mp4 --backend local
 
 Pixel-perfect SAM masks decode through @meta-sam/parser when Node is present, with a box fallback that still pads and carries safely.
 
+## Plug it into your stack
+
+Open Redactor is a layer, not another app to visit.
+
+**Python API.** Call `redact_media` and `audit_media` from apps, notebooks, Celery workers, Airflow, or Prefect and get structured paths plus analytics back.
+
+```python
+from open_redactor import RedactionOptions, redact_media
+
+result = redact_media(
+    "interview.mp4",
+    options=RedactionOptions(preset="street", sensitive=True, audio_mode="pitch"),
+)
+print(result.output_path, result.summary)
+```
+
+**Agents.** Run `open-redactor-mcp` and MCP clients get `redact_media`, `audit_media`, and `read_redaction_summary` as tools. A direct function-calling adapter lives in `examples/integrations/agent_tool.py`.
+
+**CI and Git.** Use the GitHub Action in this repo to audit pull request media or write redacted release files. Use the pre-commit hook to block a risky video before it lands in a repository.
+
+**HTTP.** Install `open-redactor[server]` and run `open-redactor-server` for team tools and no-code platforms such as n8n, Make, and Zapier.
+
+**Containers.** The included Dockerfile has ffmpeg, the SAM mask parser, OCR, and the server extra ready for CI or a small internal service.
+
+The full setup guide is [docs/integrations.md](docs/integrations.md).
+
 ## Photos, formats, and the local page
 
 Photos work exactly like video. JPG, PNG, WebP, and BMP in, redacted photo out in the same format, with every preset and layer available.
@@ -202,12 +228,21 @@ open-redactor input.mp4 [--output out.mp4]
 
 Exit code is 0 on success. A run that finds zero matches still exits 0 and writes a clean copy with a log line saying nothing matched.
 
+Integration commands use the same engine:
+
+```text
+open-redactor-mcp       # MCP tools for agent suites over stdio
+open-redactor-audit     # audit files and fail on configured severity
+open-redactor-server    # optional HTTP wrapper on 127.0.0.1 by default
+```
+
 ## Install
 
 ```bash
 pip install open-redactor
 pip install "open-redactor[local]"   # optional local models
 pip install "open-redactor[pii]"     # optional text scanning, also needs the tesseract binary
+pip install "open-redactor[server]"  # optional HTTP integration
 ```
 
 You need ffmpeg and ffprobe on your PATH. From source: clone this repo and `pip install -e .`
@@ -221,6 +256,8 @@ You need ffmpeg and ffprobe on your PATH. From source: clone this repo and `pip 
 - `masks.py` padding, carry-forward, smoothing, and coverage reports
 - `pii.py`, `codes.py` the text and codes layers
 - `analytics.py`, `replace.py` severity, summaries, shadow audits, and generated stand-ins
+- `api.py` the public Python integration API
+- `mcp_server.py`, `server.py`, `audit_gate.py` agent, HTTP, CI, and pre-commit surfaces
 
 ## License
 

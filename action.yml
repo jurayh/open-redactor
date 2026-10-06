@@ -1,0 +1,146 @@
+name: Open Redactor
+description: Audit videos for sensitive elements or create redacted copies in GitHub Actions.
+author: Open Redactor contributors
+branding:
+  icon: eye-off
+  color: red
+
+inputs:
+  path:
+    description: Video file or directory to process
+    required: true
+  task:
+    description: audit or redact
+    required: false
+    default: audit
+  output-dir:
+    description: Directory for audit reports or redacted videos
+    required: false
+    default: open-redactor-output
+  preset:
+    description: family, street, screen-share, documents, or location
+    required: false
+    default: ''
+  targets:
+    description: Comma-separated phrases to redact or audit
+    required: false
+    default: ''
+  sensitive:
+    description: Also scan for text PII and QR or bar codes
+    required: false
+    default: 'false'
+  fail-on:
+    description: For audit task, fail when this severity or higher is found
+    required: false
+    default: medium
+  backend:
+    description: api, hosted, or local
+    required: false
+    default: api
+  endpoint:
+    description: Hosted backend endpoint
+    required: false
+    default: ''
+  mode:
+    description: For redact task, blur, pixelate, or replace
+    required: false
+    default: blur
+  audio:
+    description: For redact task, keep, mute, or pitch
+    required: false
+    default: keep
+  python-version:
+    description: Python version used by the action
+    required: false
+    default: '3.12'
+
+outputs:
+  result-path:
+    description: File or directory written by the action
+    value: ${{ steps.run-redactor.outputs.result-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install Open Redactor and ffmpeg
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg tesseract-ocr
+        python -m pip install --upgrade pip
+        python -m pip install "${{ github.action_path }}[pii]"
+
+    - name: Run Open Redactor
+      id: run-redactor
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_TASK: ${{ inputs.task }}
+        INPUT_OUTPUT_DIR: ${{ inputs.output-dir }}
+        INPUT_PRESET: ${{ inputs.preset }}
+        INPUT_TARGETS: ${{ inputs.targets }}
+        INPUT_SENSITIVE: ${{ inputs.sensitive }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_BACKEND: ${{ inputs.backend }}
+        INPUT_ENDPOINT: ${{ inputs.endpoint }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_AUDIO: ${{ inputs.audio }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$INPUT_OUTPUT_DIR"
+        args=()
+        if [[ -n "$INPUT_PRESET" ]]; then
+          args+=(--preset "$INPUT_PRESET")
+        fi
+        if [[ -n "$INPUT_TARGETS" ]]; then
+          IFS=',' read -ra target_list <<< "$INPUT_TARGETS"
+          for target in "${target_list[@]}"; do
+            target="$(echo "$target" | xargs)"
+            if [[ -n "$target" ]]; then
+              args+=(--target "$target")
+            fi
+          done
+        fi
+        if [[ "$INPUT_SENSITIVE" == "true" ]]; then
+          args+=(--sensitive)
+        fi
+        args+=(--backend "$INPUT_BACKEND")
+        if [[ -n "$INPUT_ENDPOINT" ]]; then
+          args+=(--endpoint "$INPUT_ENDPOINT")
+        fi
+
+        if [[ "$INPUT_TASK" == "audit" ]]; then
+          mapfile -d '' files < <(
+            if [[ -f "$INPUT_PATH" ]]; then
+              printf '%s\0' "$INPUT_PATH"
+            else
+              find "$INPUT_PATH" -type f \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.mkv' -o -iname '*.webm' -o -iname '*.avi' -o -iname '*.m4v' \) -print0
+            fi
+          )
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No supported videos found at $INPUT_PATH" >&2
+            exit 2
+          fi
+          open-redactor-audit "${files[@]}" "${args[@]}" --fail-on "$INPUT_FAIL_ON" --output-dir "$INPUT_OUTPUT_DIR"
+          echo "result-path=$INPUT_OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+        elif [[ "$INPUT_TASK" == "redact" ]]; then
+          args+=(--mode "$INPUT_MODE" --audio "$INPUT_AUDIO")
+          if [[ -d "$INPUT_PATH" ]]; then
+            open-redactor "$INPUT_PATH" --batch --output "$INPUT_OUTPUT_DIR" "${args[@]}"
+            echo "result-path=$INPUT_OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+          else
+            name="$(basename "$INPUT_PATH")"
+            stem="${name%.*}"
+            output="$INPUT_OUTPUT_DIR/$stem.redacted.mp4"
+            open-redactor "$INPUT_PATH" --output "$output" "${args[@]}"
+            echo "result-path=$output" >> "$GITHUB_OUTPUT"
+          fi
+        else
+          echo "task must be audit or redact" >&2
+          exit 2
+        fi

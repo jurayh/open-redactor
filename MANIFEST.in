@@ -1,0 +1,4 @@
+include action.yml Dockerfile .pre-commit-hooks.yaml .dockerignore
+include docs/*.md
+include examples/integrations/*.py
+include eval/*.py eval/*.md

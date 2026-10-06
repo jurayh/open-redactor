@@ -1,0 +1,10 @@
+- id: open-redactor-audit
+  name: Open Redactor audit
+  description: Block a commit when a video contains sensitive elements at the configured severity.
+  entry: open-redactor-audit
+  language: python
+  types_or: [video]
+  files: (?i)\.(mp4|mov|mkv|webm|avi|m4v)$
+  args: [--fail-on=medium, --sensitive]
+  require_serial: true
+  pass_filenames: true
