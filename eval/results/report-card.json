@@ -1,0 +1,62 @@
+[
+  {
+    "clip": "qr-static",
+    "kind": "code",
+    "status": "scored",
+    "detection": {
+      "gt_boxes": 20,
+      "predicted_boxes": 20,
+      "recall_at_iou": 1.0,
+      "mean_best_iou": 0.7511,
+      "iou_threshold": 0.5,
+      "frames_scored": 20
+    },
+    "continuity": {
+      "span": 20,
+      "covered": 20,
+      "coverage": 1.0,
+      "longest_gap": 0,
+      "gap_frames": 0
+    }
+  },
+  {
+    "clip": "screen-form",
+    "kind": "text-pii",
+    "status": "scored",
+    "detection": {
+      "gt_boxes": 90,
+      "predicted_boxes": 90,
+      "recall_at_iou": 1.0,
+      "mean_best_iou": 0.6852,
+      "iou_threshold": 0.5,
+      "frames_scored": 30
+    },
+    "continuity": {
+      "span": 30,
+      "covered": 30,
+      "coverage": 1.0,
+      "longest_gap": 0,
+      "gap_frames": 0
+    }
+  },
+  {
+    "clip": "badge-moving",
+    "kind": "object",
+    "status": "scored",
+    "detection": {
+      "gt_boxes": 30,
+      "predicted_boxes": 23,
+      "recall_at_iou": 0.7667,
+      "mean_best_iou": 0.7455,
+      "iou_threshold": 0.5,
+      "frames_scored": 30
+    },
+    "continuity": {
+      "span": 30,
+      "covered": 23,
+      "coverage": 0.7667,
+      "longest_gap": 7,
+      "gap_frames": 7
+    }
+  }
+]

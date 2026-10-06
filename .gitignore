@@ -10,3 +10,4 @@ build/
 .env.*
 *.key
 *.pem
+eval/results/redacted/

@@ -149,6 +149,13 @@ cat interview.redacted.summary.json
 
 More worked examples with frames and coverage proof live in [examples/README.md](examples/README.md). The longer guide, privacy notes, and honest limits live in [docs/using-open-redactor.md](docs/using-open-redactor.md).
 
+## Measured, not claimed
+
+An eval harness ships in [eval/](eval/). Three generated clips with exact ground truth score the codes layer, the text layer, and live SAM tracking on recall, mask overlap, coverage continuity, and a leakage metric that measures how much identifying detail survives redaction.
+
+Current reference scores: QR codes recall 1.00 with leakage 0.16, screen form text recall 1.00 with leakage 0.07, and a moving name badge at recall 0.77, including a real 7 frame entry gap the harness caught. The eval README maps the format to EgoBlur, Ref-YouTube-VOS, DAVIS, and MOT so external sets can plug into the same scorer.
+
+
 ## Why this exists
 
 **Thesis:** Consumer video redaction is either manual or enterprise-priced and a prompt-driven open-source CLI makes share-safe video a one-command default.
