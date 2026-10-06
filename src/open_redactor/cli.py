@@ -19,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", action="append", default=None, help="Add one phrase. Can be repeated")
     p.add_argument("--targets-default", action="store_true", help="Start from the default set of person, face, license plate, and screen")
     p.add_argument("--add-target", action="append", default=None, help="Add one phrase on top of the defaults. Can be repeated")
-    p.add_argument("--mode", choices=["blur", "pixelate"], default="blur", help="Redaction mode")
+    p.add_argument("--mode", choices=["blur", "pixelate", "replace"], default="blur", help="Redaction mode: blur, pixelate, or replace with generated stand-ins")
     p.add_argument("--strength", type=int, default=21, help="Blur radius or pixel block size")
     p.add_argument("--mask-margin", type=int, default=10, help="Pad every mask by this many pixels")
     p.add_argument("--carry-frames", type=int, default=4, help="Hold a track for this many frames after it vanishes")
@@ -34,6 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--pii-text", action="store_true", help="Also OCR sampled frames for card numbers, SSNs, phones, and emails and blur them")
     p.add_argument("--codes", action="store_true", help="Also detect and cover QR codes and barcodes in sampled frames")
     p.add_argument("--sensitive", action="store_true", help="Turn on --pii-text and --codes together")
+    p.add_argument("--shadow", action="store_true", help="Audit only: report what would be removed with severity, render nothing")
     p.add_argument("--audio", choices=["keep", "mute", "pitch"], default="keep", help="Audio redaction: keep the original track, mute it, or pitch shift voices")
     p.add_argument("--pitch-factor", type=float, default=0.8, help="Pitch multiplier for --audio pitch. Below 1 deepens, above 1 raises")
     p.add_argument("--provider", choices=["sam", "grounding-sam"], default=None, help="Model provider: SAM via API or hosted, or Grounding SAM locally")
@@ -80,6 +81,7 @@ def process_one(
     codes: bool = False,
     audio_mode: str = "keep",
     pitch_factor: float = 0.8,
+    shadow: bool = False,
 ) -> int:
     out = output_path if output_path else default_output_path(input_path)
     if output_path is not None:
@@ -110,6 +112,7 @@ def process_one(
             codes=codes,
             audio_mode=audio_mode,
             pitch_factor=pitch_factor,
+            shadow=shadow,
         )
         return 0
     except FileNotFoundError as exc:
@@ -198,6 +201,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 codes=args.codes or args.sensitive,
                 audio_mode=args.audio,
                 pitch_factor=args.pitch_factor,
+                shadow=args.shadow,
             )
             if code != 0:
                 exit_code = code
@@ -262,6 +266,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         codes=args.codes or args.sensitive,
         audio_mode=args.audio,
         pitch_factor=args.pitch_factor,
+        shadow=args.shadow,
     )
 
 

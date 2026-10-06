@@ -213,6 +213,7 @@ def render_video(
     strength: int = 21,
     audio_mode: str = "keep",
     pitch_factor: float = 0.8,
+    shadow: bool = False,
 ) -> Path:
     """Render redacted frames to MP4 and mux audio when present."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -402,6 +403,7 @@ def run_pipeline(
     codes: bool = False,
     audio_mode: str = "keep",
     pitch_factor: float = 0.8,
+    shadow: bool = False,
 ) -> Dict[str, object]:
     """Run the full redaction pipeline and return a summary dict.
 
@@ -520,6 +522,57 @@ def run_pipeline(
         smooth_radius=1,
     )
 
+    # Analytics summary, shared by shadow audits and real runs
+    from .analytics import build_summary, summary_text, write_summary_files
+    summary = build_summary(all_tracks, total_frames, audio_mode=audio_mode, shadow=shadow)
+
+    if shadow:
+        paths = write_summary_files(summary, output_path, shadow=True)
+        contact_path = output_path.with_suffix(".contact.png")
+        make_contact_sheet(frames, merged_masks, contact_path)
+        print(summary_text(summary))
+        print(f"Audit report: {paths['audit']}")
+        print(f"Summary JSON: {paths['json']}")
+        print(f"Contact sheet: {contact_path}")
+        print("Shadow mode: no redacted video was rendered and the original is untouched.")
+        return {
+            "input": str(input_path),
+            "output": None,
+            "audit": str(paths["audit"]),
+            "summary": str(paths["json"]),
+            "contact_sheet": str(contact_path),
+            "frames": total_frames,
+            "objects": total_objects,
+            "shadow": True,
+            "preview": False,
+        }
+
+    # Replace mode works per track so each kind gets its own stand-in
+    render_frames = frames
+    render_masks = merged_masks
+    if mode == "replace":
+        from .replace import apply_replacement
+        per_track_masks = {}
+        for track_key, track_map in all_tracks.items():
+            per_track_masks[track_key] = build_per_frame_masks(
+                tracks={track_key: track_map},
+                total_frames=total_frames,
+                shape=shape,
+                margin=mask_margin,
+                carry_frames=carry_frames,
+                smooth_radius=1,
+            )
+        replaced_frames = []
+        for idx, frame in enumerate(frames):
+            out_frame = frame
+            for track_key, tmask in per_track_masks.items():
+                if idx < len(tmask) and np.any(tmask[idx]):
+                    out_frame = apply_replacement(out_frame, tmask[idx], track_key)
+            replaced_frames.append(out_frame)
+        render_frames = replaced_frames
+        render_masks = [np.zeros(shape, dtype=bool) for _ in range(total_frames)]
+        print("Replace mode: sensitive regions swapped for generated stand-ins")
+
     # Coverage report
     report_path: Optional[Path] = None
     if report or preview:
@@ -545,8 +598,8 @@ def run_pipeline(
         sample_frames = max(1, min(sample_frames, total_frames))
         preview_output = output_path.with_name(output_path.stem + ".preview" + output_path.suffix)
         render_video(
-            frames=frames[:sample_frames],
-            masks=merged_masks[:sample_frames],
+            frames=render_frames[:sample_frames],
+            masks=render_masks[:sample_frames],
             info=info,
             output_path=preview_output,
             mode=mode,
@@ -572,8 +625,8 @@ def run_pipeline(
 
     # Render full clip
     render_video(
-        frames=frames,
-        masks=merged_masks,
+        frames=render_frames,
+        masks=render_masks,
         info=info,
         output_path=output_path,
         mode=mode,
@@ -591,6 +644,10 @@ def run_pipeline(
         make_contact_sheet(frames, merged_masks, contact_path)
         print(f"Contact sheet: {contact_path}")
 
+    paths = write_summary_files(summary, output_path, shadow=False)
+    print(summary_text(summary))
+    print(f"Summary JSON: {paths['json']}")
+
     return {
         "input": str(input_path),
         "output": str(output_path),
@@ -599,5 +656,6 @@ def run_pipeline(
         "objects": total_objects,
         "contact_sheet": str(contact_path) if contact_path else None,
         "report": str(report_path) if report_path else None,
+        "summary": str(paths["json"]),
         "preview": False,
     }

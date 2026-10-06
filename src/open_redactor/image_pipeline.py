@@ -98,7 +98,18 @@ def run_image_pipeline(
     masks = build_per_frame_masks(
         tracks=all_tracks, total_frames=1, shape=shape, margin=mask_margin, carry_frames=0, smooth_radius=1
     )
-    redacted = apply_redaction_to_frame(frame, masks[0], mode=mode, strength=strength)
+    if mode == "replace":
+        from .replace import apply_replacement
+        redacted = frame
+        for track_key, track_map in all_tracks.items():
+            single = build_per_frame_masks(
+                tracks={track_key: track_map}, total_frames=1, shape=shape,
+                margin=mask_margin, carry_frames=0, smooth_radius=1,
+            )
+            if np.any(single[0]):
+                redacted = apply_replacement(redacted, single[0], track_key)
+    else:
+        redacted = apply_redaction_to_frame(frame, masks[0], mode=mode if mode in ("blur", "pixelate") else "blur", strength=strength)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if not cv2.imwrite(str(output_path), redacted):
         raise RuntimeError(f"Could not write output image: {output_path}")

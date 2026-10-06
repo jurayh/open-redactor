@@ -43,3 +43,7 @@ Use --preset documents --pii-text for passports, bank cards, driver licenses, an
 ## Codes, location, and badges
 
 --codes covers QR codes and barcodes, --preset location covers street signs, house numbers, plates, and mailboxes, and name badges and lanyards are part of the documents preset. --sensitive turns on the text and codes layers together and pairs well with the documents and location presets.
+
+## Analytics, shadow, and replacement
+
+Normal runs print analytics and write a .summary.json. --shadow runs detection only and writes an .audit.txt with severity per element, so start with a shadow audit on anything sensitive or unfamiliar. --mode replace swaps regions for generated stand-ins instead of masking, with per track deterministic fakes. Shadow first, replace when the natural feel matters, blur when it does not.

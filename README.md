@@ -122,6 +122,21 @@ open-redactor input.mp4 --mode pixelate --strength 24
 open-redactor input.mp4 --mask-margin 12 --carry-frames 5 --contact-sheet
 ```
 
+## Analytics, shadow audits, and replacement
+
+Every run ends with analytics and writes a .summary.json next to the output: frames affected, elements found by severity, an exposure score, and the audio state. Severity runs critical for passports, cards, SSNs, and IDs, high for faces, people, contact details, house numbers, and codes, and medium for plates, screens, badges, and signs.
+
+Shadow mode audits without touching anything:
+
+```bash
+open-redactor clip.mp4 --shadow --preset documents --sensitive
+```
+
+It renders no video, leaves the original untouched, and writes an .audit.txt plus the summary JSON and a contact sheet so a reviewer can decide before anyone redacts.
+
+Replacement mode swaps instead of masking with --mode replace. Faces and people get a neutral synthetic avatar, plates and house numbers get a plaque with a fake value, card numbers become a format valid fake in the reserved test range, phone numbers use the fictional 555 range, and other regions are inpainted from their surroundings. Fakes are deterministic per track, so the same person keeps the same stand-in and the same fake number across the whole clip.
+
+
 ## Sensitive documents
 
 Passports, cards, and IDs need two layers. The documents preset covers the objects, passport, credit card, driver license, id card, and document, with strong blur. The text layer covers what is printed on them.
