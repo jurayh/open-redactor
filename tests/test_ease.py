@@ -35,3 +35,28 @@ def test_hosted_endpoint_from_env(monkeypatch, tmp_path):
     assert client.endpoint == "https://example.test/v1/responses"
     client2 = SamApiClient.from_env("MODEL_API_KEY", endpoint="https://other.test/v1/responses")
     assert client2.endpoint == "https://other.test/v1/responses"
+
+
+def test_iou_tracker_keeps_identity():
+    from open_redactor.local_gsam import IouTracker, box_iou
+
+    assert box_iou((0, 0, 10, 10), (0, 0, 10, 10)) == 1.0
+    assert box_iou((0, 0, 10, 10), (50, 50, 60, 60)) == 0.0
+    tracker = IouTracker()
+    first = tracker.assign([(0, 0, 10, 10), (100, 100, 120, 120)])
+    second = tracker.assign([(1, 1, 11, 11), (200, 200, 210, 210)])
+    assert second[0] == first[0]
+    assert second[1] not in first
+
+
+def test_local_provider_missing_stack_is_graceful(tmp_path):
+    from unittest.mock import patch
+
+    from open_redactor.local_gsam import LocalGroundingSamClient
+
+    client = LocalGroundingSamClient()
+    with patch("open_redactor.local_gsam.local_stack_available", return_value=False):
+        # _load imports directly, so patch the loader itself for this path
+        with patch.object(LocalGroundingSamClient, "_load", return_value=False):
+            result = client.segment_video(tmp_path / "x.mp4", "face", shape=(100, 100))
+    assert result.tracks == {}

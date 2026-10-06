@@ -18,7 +18,7 @@ SAM 3.1 is an open weights model, so Open Redactor does not hard assume one home
 
 **Hosted backend.** `--backend hosted --endpoint https://your-host.example/v1/responses` sends the same Responses API request shape to an endpoint you control, or set OPEN_REDACTOR_ENDPOINT once. Use this for a team server, a cloud GPU box, or a third party host that speaks the same shape. The API key still comes from the named environment variable and is sent only to that endpoint.
 
-**Local backend.** `--backend local` or `--local` is meant for the open weights on your own hardware, so private footage never leaves the device. In the current build the local loader is not wired yet and returns zero matches with a clear log line, so use api or hosted for live detection today. The pipeline, masks, cache, and reports are backend agnostic, so wiring the weights in does not change the CLI. Local is the right home for journalists, medical, and family footage that should never be uploaded, and it is the top roadmap item.
+**Local backend.** `--backend local` runs Grounding SAM on your own hardware, so private footage never leaves the device. Grounding DINO finds the phrase, SAM 2 cuts the mask, and a small IoU tracker keeps identities stable across frames. Install the heavy stack once with pip install "open-redactor[local]" and run with --provider grounding-sam, which is the default for the local backend. It uses a GPU when one is present and falls back to CPU slowly. Without the optional stack it returns zero matches with a clear install message and never pretends it detected something. A native SAM video propagator and larger model options are the next local upgrades.
 
 ## Privacy notes
 

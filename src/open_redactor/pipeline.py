@@ -326,6 +326,7 @@ def run_pipeline(
     use_cache: bool = True,
     backend: str | None = None,
     endpoint: str | None = None,
+    provider: str | None = None,
 ) -> Dict[str, object]:
     """Run the full redaction pipeline and return a summary dict.
 
@@ -346,9 +347,14 @@ def run_pipeline(
     # Segment and track. Backend is api, hosted, or local.
     # --local stays as an alias for the local backend.
     resolved_backend = backend or ("local" if local else "api")
-    client: SamApiClient | LocalSamStub
+    resolved_provider = provider or ("grounding-sam" if resolved_backend == "local" else "sam")
+    client: object
     if resolved_backend == "local":
-        client = LocalSamStub()
+        if resolved_provider == "grounding-sam":
+            from .local_gsam import LocalGroundingSamClient
+            client = LocalGroundingSamClient()
+        else:
+            client = LocalSamStub()
     elif resolved_backend in ("api", "hosted"):
         client = SamApiClient.from_env(api_key_env, use_cache=use_cache, endpoint=endpoint)
         if resolved_backend == "hosted":

@@ -124,12 +124,12 @@ open-redactor input.mp4 --mask-margin 12 --carry-frames 5 --contact-sheet
 
 ## Where SAM runs
 
-SAM 3.1 is open weights, so the backend is a choice, not an assumption. API is the Meta Model API and works today with no GPU. Hosted points the same request at your own endpoint with --backend hosted and --endpoint. Local is for the open weights on your own hardware so footage never leaves the device, its loader is the top roadmap item and today it returns zero matches with a clear log line. Full notes in [docs/using-open-redactor.md](docs/using-open-redactor.md).
+SAM 3.1 is open weights, so the backend is a choice, not an assumption. API is the Meta Model API and works today with no GPU. Hosted points the same request at your own endpoint with --backend hosted and --endpoint. Local runs Grounding SAM, Grounding DINO plus SAM 2 with IoU tracking, on your own hardware so footage never leaves the device. Install it with pip install "open-redactor[local]". Full notes in [docs/using-open-redactor.md](docs/using-open-redactor.md).
 
 ```bash
 open-redactor clip.mp4 --backend api
 open-redactor clip.mp4 --backend hosted --endpoint https://your-host.example/v1/responses
-open-redactor clip.mp4 --backend local
+open-redactor clip.mp4 --backend local --provider grounding-sam
 ```
 
 

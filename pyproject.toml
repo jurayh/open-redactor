@@ -30,6 +30,11 @@ dev = [
   "pytest>=7.4",
   "pytest-cov>=4.1",
 ]
+local = [
+  "torch>=2.2",
+  "transformers>=4.44",
+  "accelerate>=0.33",
+]
 
 [project.scripts]
 open-redactor = "open_redactor.cli:main"
