@@ -116,7 +116,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build image
-        run: docker build -t open-redactor:qa .
+        run: |
+          set -o pipefail
+          docker build --progress=plain -t open-redactor:qa . 2>&1 | tee docker-build.log
+      - name: Show build log tail on failure
+        if: failure()
+        run: |
+          {
+            echo '## Docker build log (last 80 lines)'
+            echo '```'
+            tail -n 80 docker-build.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          tail -n 15 docker-build.log | while IFS= read -r line; do echo "::error::$line"; done
       - name: Redact the QR clip in the container
         run: |
           mkdir -p qa-docker
