@@ -42,6 +42,8 @@ class RedactionOptions:
     sensitive: bool = False
     audio_mode: str = "keep"
     pitch_factor: float = 0.8
+    keep: Optional[Sequence[str]] = None
+    exclude: Optional[Sequence[str]] = None
 
     def validate(self) -> None:
         if self.mode not in REDACTION_MODES:
@@ -214,6 +216,8 @@ def redact_media(
             provider=opts.provider,
             pii_text=opts.pii_text or sensitive,
             codes=opts.codes or sensitive,
+            keep_tracks=list(opts.keep) if opts.keep else None,
+            exclude_tracks=list(opts.exclude) if opts.exclude else None,
         )
         return _result_from_details(source, details)
 
@@ -241,6 +245,8 @@ def redact_media(
         audio_mode=opts.audio_mode,
         pitch_factor=opts.pitch_factor,
         shadow=False,
+        keep_tracks=list(opts.keep) if opts.keep else None,
+        exclude_tracks=list(opts.exclude) if opts.exclude else None,
     )
     return _result_from_details(source, details)
 
@@ -293,6 +299,8 @@ def audit_media(
         audio_mode=opts.audio_mode,
         pitch_factor=opts.pitch_factor,
         shadow=True,
+        keep_tracks=list(opts.keep) if opts.keep else None,
+        exclude_tracks=list(opts.exclude) if opts.exclude else None,
     )
     return _result_from_details(source, details)
 

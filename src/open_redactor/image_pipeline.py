@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
 
-from .masks import build_per_frame_masks
+from .masks import build_per_frame_masks, select_tracks
 from .pipeline import apply_redaction_to_frame, apply_secure_fill
 from .sam_client import LocalSamStub, SamApiClient, SegmentationResult
 
@@ -29,6 +29,8 @@ def run_image_pipeline(
     provider: str | None = None,
     pii_text: bool = False,
     codes: bool = False,
+    keep_tracks: Optional[List[str]] = None,
+    exclude_tracks: Optional[List[str]] = None,
 ) -> Dict[str, object]:
     frame = cv2.imread(str(input_path))
     if frame is None:
@@ -93,6 +95,24 @@ def run_image_pipeline(
                     all_tracks[f"code:{key}"] = {0: m}
                     total_objects += 1
 
+    # Keep or exclude tracks by key, same selection as the video pipeline
+    left_visible: List[str] = []
+    if keep_tracks or exclude_tracks:
+        all_tracks, kept_visible, excluded, unmatched = select_tracks(
+            all_tracks, keep=keep_tracks, exclude=exclude_tracks
+        )
+        left_visible = kept_visible + excluded
+        for key in kept_visible:
+            print(f"Kept visible, not redacted: {key}")
+        for key in excluded:
+            print(f"Excluded, not redacted: {key}")
+        for pattern in unmatched:
+            available = ", ".join(sorted(all_tracks.keys())) or "none"
+            print(
+                f"Warning: no track matches '{pattern}'. "
+                f"Track keys in this photo: {available}"
+            )
+
     if total_objects == 0:
         print("Nothing matched. Writing a clean copy.")
     masks = build_per_frame_masks(
@@ -123,4 +143,4 @@ def run_image_pipeline(
     if not cv2.imwrite(str(output_path), redacted):
         raise RuntimeError(f"Could not write output image: {output_path}")
     print(f"Wrote: {output_path}")
-    return {"input": str(input_path), "output": str(output_path), "objects": total_objects, "photo": True}
+    return {"input": str(input_path), "output": str(output_path), "objects": total_objects, "photo": True, "kept_visible": left_visible}

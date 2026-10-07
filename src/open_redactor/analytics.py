@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 SEVERITY_WEIGHTS = {"critical": 10, "high": 6, "medium": 3, "low": 1}
 
@@ -59,6 +59,7 @@ def build_summary(
     total_frames: int,
     audio_mode: str = "keep",
     shadow: bool = False,
+    kept_visible: Optional[List[str]] = None,
 ) -> dict:
     elements: List[dict] = []
     frames_with_hits: set[int] = set()
@@ -103,6 +104,7 @@ def build_summary(
         "exposure_score": round(risk, 1),
         "audio_mode": audio_mode,
         "audio_note": audio_note,
+        "kept_visible": list(kept_visible or []),
         "elements": elements,
     }
 
@@ -121,6 +123,8 @@ def summary_text(summary: dict) -> str:
     )
     lines.append(f"Exposure score before action: {summary['exposure_score']}")
     lines.append(f"Audio: {summary['audio_note']}")
+    if summary.get("kept_visible"):
+        lines.append(f"Left visible by request, not redacted: {', '.join(summary['kept_visible'])}")
     if summary["elements"]:
         lines.append("")
         lines.append("Most sensitive first:")

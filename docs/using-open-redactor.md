@@ -47,3 +47,7 @@ Use --preset documents --pii-text for passports, bank cards, driver licenses, an
 ## Analytics, shadow, and replacement
 
 Normal runs print analytics and write a .summary.json. --shadow runs detection only and writes an .audit.txt with severity per element, so start with a shadow audit on anything sensitive or unfamiliar. --mode replace swaps regions for generated stand-ins instead of masking, with per track deterministic fakes. Shadow first, replace when the natural feel matters, blur when it does not.
+
+## Keep or exclude a track
+
+Every track has a key, printed in the coverage report and the summary JSON, for example `person:0`, `face:1`, or `pii:email:2`. Two flags use those keys. `--keep person:0` leaves that one track visible while everything else is redacted, which is the family video case where one person is fine being seen. `--exclude person:1` drops a named track from redaction, which is the fix for a false positive. Both flags repeat, both accept globs such as `person:*`, and both apply to photos as well as video. A pattern that matches nothing prints a warning with the track keys that do exist. Whatever was left visible is listed in the coverage report and under `kept_visible` in the summary JSON, so an exception never hides in the record.

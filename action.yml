@@ -25,6 +25,14 @@ inputs:
     description: Comma-separated phrases to redact or audit
     required: false
     default: ''
+  keep:
+    description: Comma-separated track keys to leave visible, for example person:0
+    required: false
+    default: ''
+  exclude:
+    description: Comma-separated track keys to drop from redaction as false positives
+    required: false
+    default: ''
   sensitive:
     description: Also scan for text PII and QR or bar codes
     required: false
@@ -84,6 +92,8 @@ runs:
         INPUT_OUTPUT_DIR: ${{ inputs.output-dir }}
         INPUT_PRESET: ${{ inputs.preset }}
         INPUT_TARGETS: ${{ inputs.targets }}
+        INPUT_KEEP: ${{ inputs.keep }}
+        INPUT_EXCLUDE: ${{ inputs.exclude }}
         INPUT_SENSITIVE: ${{ inputs.sensitive }}
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_BACKEND: ${{ inputs.backend }}
@@ -103,6 +113,24 @@ runs:
             target="$(echo "$target" | xargs)"
             if [[ -n "$target" ]]; then
               args+=(--target "$target")
+            fi
+          done
+        fi
+        if [[ -n "$INPUT_KEEP" ]]; then
+          IFS=',' read -ra keep_list <<< "$INPUT_KEEP"
+          for key in "${keep_list[@]}"; do
+            key="$(echo "$key" | xargs)"
+            if [[ -n "$key" ]]; then
+              args+=(--keep "$key")
+            fi
+          done
+        fi
+        if [[ -n "$INPUT_EXCLUDE" ]]; then
+          IFS=',' read -ra exclude_list <<< "$INPUT_EXCLUDE"
+          for key in "${exclude_list[@]}"; do
+            key="$(echo "$key" | xargs)"
+            if [[ -n "$key" ]]; then
+              args+=(--exclude "$key")
             fi
           done
         fi

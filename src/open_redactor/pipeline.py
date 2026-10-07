@@ -20,7 +20,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from .masks import build_coverage_report, build_per_frame_masks, coverage_gaps
+from .masks import build_coverage_report, build_per_frame_masks, coverage_gaps, select_tracks
 from .sam_client import LocalSamStub, SamApiClient, SegmentationResult
 
 
@@ -420,6 +420,8 @@ def run_pipeline(
     audio_mode: str = "keep",
     pitch_factor: float = 0.8,
     shadow: bool = False,
+    keep_tracks: Optional[List[str]] = None,
+    exclude_tracks: Optional[List[str]] = None,
 ) -> Dict[str, object]:
     """Run the full redaction pipeline and return a summary dict.
 
@@ -520,6 +522,25 @@ def run_pipeline(
                 all_tracks[f"code:{track_key}"] = mask_map
                 total_objects += 1
 
+    # Keep or exclude tracks by key. Kept tracks stay visible while the
+    # rest are redacted, excluded tracks are dropped as false positives.
+    left_visible: List[str] = []
+    if keep_tracks or exclude_tracks:
+        all_tracks, kept_visible, excluded, unmatched = select_tracks(
+            all_tracks, keep=keep_tracks, exclude=exclude_tracks
+        )
+        left_visible = kept_visible + excluded
+        for key in kept_visible:
+            print(f"Kept visible, not redacted: {key}")
+        for key in excluded:
+            print(f"Excluded, not redacted: {key}")
+        for pattern in unmatched:
+            available = ", ".join(sorted(all_tracks.keys())) or "none"
+            print(
+                f"Warning: no track matches '{pattern}'. "
+                f"Track keys in this run: {available}"
+            )
+
     if total_objects == 0:
         print("Nothing matched. Writing a clean copy.")
 
@@ -553,7 +574,7 @@ def run_pipeline(
 
     # Analytics summary, shared by shadow audits and real runs
     from .analytics import build_summary, summary_text, write_summary_files
-    summary = build_summary(all_tracks, total_frames, audio_mode=audio_mode, shadow=shadow)
+    summary = build_summary(all_tracks, total_frames, audio_mode=audio_mode, shadow=shadow, kept_visible=left_visible)
 
     if shadow:
         paths = write_summary_files(summary, output_path, shadow=True)
@@ -618,6 +639,7 @@ def run_pipeline(
             carry_frames=carry_frames,
             targets=targets,
             audio_mode=audio_mode,
+            visible=left_visible,
         )
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report_text)

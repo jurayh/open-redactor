@@ -35,6 +35,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--codes", action="store_true", help="Also detect and cover QR codes and barcodes in sampled frames")
     p.add_argument("--sensitive", action="store_true", help="Turn on --pii-text and --codes together")
     p.add_argument("--shadow", action="store_true", help="Audit only: report what would be removed with severity, render nothing")
+    p.add_argument("--keep", action="append", default=None, help="Leave a named track visible while everything else is redacted, for example --keep person:0. Track keys are printed in the coverage report. Can be repeated, globs allowed")
+    p.add_argument("--exclude", action="append", default=None, help="Drop a named track from redaction as a false positive, for example --exclude person:1. Can be repeated, globs allowed")
     p.add_argument("--audio", choices=["keep", "mute", "pitch"], default="keep", help="Audio redaction: keep the original track, mute it, or pitch shift voices")
     p.add_argument("--pitch-factor", type=float, default=0.8, help="Pitch multiplier for --audio pitch. Below 1 deepens, above 1 raises")
     p.add_argument("--provider", choices=["sam", "grounding-sam"], default=None, help="Model provider: SAM via API or hosted, or Grounding SAM locally")
@@ -82,6 +84,8 @@ def process_one(
     audio_mode: str = "keep",
     pitch_factor: float = 0.8,
     shadow: bool = False,
+    keep_tracks: Optional[List[str]] = None,
+    exclude_tracks: Optional[List[str]] = None,
 ) -> int:
     out = output_path if output_path else default_output_path(input_path)
     if output_path is not None:
@@ -113,6 +117,8 @@ def process_one(
             audio_mode=audio_mode,
             pitch_factor=pitch_factor,
             shadow=shadow,
+            keep_tracks=keep_tracks,
+            exclude_tracks=exclude_tracks,
         )
         return 0
     except FileNotFoundError as exc:
@@ -202,6 +208,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 audio_mode=args.audio,
                 pitch_factor=args.pitch_factor,
                 shadow=args.shadow,
+                keep_tracks=args.keep,
+                exclude_tracks=args.exclude,
             )
             if code != 0:
                 exit_code = code
@@ -230,6 +238,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 provider=args.provider,
                 pii_text=args.pii_text or args.sensitive,
                 codes=args.codes or args.sensitive,
+                keep_tracks=args.keep,
+                exclude_tracks=args.exclude,
             )
             return 0
         except Exception as exc:
@@ -267,6 +277,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         audio_mode=args.audio,
         pitch_factor=args.pitch_factor,
         shadow=args.shadow,
+        keep_tracks=args.keep,
+        exclude_tracks=args.exclude,
     )
 
 

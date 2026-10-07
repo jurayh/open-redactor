@@ -8,6 +8,7 @@ and fill single-frame gaps inside a track.
 
 from __future__ import annotations
 
+import fnmatch
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
 
@@ -214,12 +215,49 @@ def coverage_gaps(
     return gaps
 
 
+def select_tracks(
+    tracks: Dict[str, Dict[int, np.ndarray]],
+    keep: Optional[Sequence[str]] = None,
+    exclude: Optional[Sequence[str]] = None,
+) -> tuple[Dict[str, Dict[int, np.ndarray]], List[str], List[str], List[str]]:
+    """Split tracks into the redaction set and the tracks left visible.
+
+    Patterns match full track keys (for example ``person:0`` or
+    ``code:qr-0``) exactly or as fnmatch globs (``person:*``). A keep
+    pattern names a track to leave visible while everything else is
+    still redacted, the "blur everyone except this person" case. An
+    exclude pattern drops a named track from redaction, the false
+    positive case. Both remove tracks from the returned redaction set.
+
+    Returns (redacted, kept_visible, excluded, unmatched_patterns).
+    """
+    keep_patterns = list(keep or [])
+    exclude_patterns = list(exclude or [])
+    if not keep_patterns and not exclude_patterns:
+        return dict(tracks), [], [], []
+
+    def matches(key: str, patterns: Sequence[str]) -> bool:
+        return any(fnmatch.fnmatchcase(key, pattern) for pattern in patterns)
+
+    kept_visible = sorted(key for key in tracks if matches(key, keep_patterns))
+    excluded = sorted(
+        key for key in tracks if key not in kept_visible and matches(key, exclude_patterns)
+    )
+    skip = set(kept_visible) | set(excluded)
+    redacted = {key: value for key, value in tracks.items() if key not in skip}
+    matched = {pattern for pattern in keep_patterns + exclude_patterns
+               if any(fnmatch.fnmatchcase(key, pattern) for key in tracks)}
+    unmatched = [pattern for pattern in keep_patterns + exclude_patterns if pattern not in matched]
+    return redacted, kept_visible, excluded, unmatched
+
+
 def build_coverage_report(
     tracks: Dict[str, Dict[int, np.ndarray]],
     total_frames: int,
     carry_frames: int,
     targets: List[str],
     audio_mode: str = "keep",
+    visible: Optional[List[str]] = None,
 ) -> str:
     """Build a plain text coverage report.
 
@@ -236,7 +274,11 @@ def build_coverage_report(
     if not tracks:
         lines.append("Tracks: 0")
         lines.append("Detections: 0 frames with detections")
-        lines.append("Result: nothing matched. A clean copy is safe to review in the contact sheet.")
+        if visible:
+            lines.append(f"Left visible by request, not redacted: {', '.join(visible)}")
+            lines.append("Result: every detected track was left visible by request. The copy matches the original.")
+        else:
+            lines.append("Result: nothing matched. A clean copy is safe to review in the contact sheet.")
         return "\n".join(lines) + "\n"
 
     total_detected = 0
@@ -271,6 +313,8 @@ def build_coverage_report(
     else:
         lines.append("Uncovered gaps longer than carry window: 0")
         lines.append("Result: continuous coverage inside track spans with current carry settings.")
+    if visible:
+        lines.append(f"Left visible by request, not redacted: {', '.join(visible)}")
     if audio_mode == "mute":
         lines.append("Audio: muted, the output has no audio track.")
     elif audio_mode == "pitch":

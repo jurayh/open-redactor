@@ -220,6 +220,7 @@ open-redactor input.mp4 [--output out.mp4]
   --preview                         --shadow           --contact-sheet
   --report (default)                --no-report
   --sensitive                       --pii-text         --codes
+  --keep TRACK (repeatable)         --exclude TRACK (repeatable)
   --audio keep|mute|pitch          --pitch-factor 0.8
   --backend api|hosted|local        --provider sam|grounding-sam
   --endpoint URL                    --api-key-env MODEL_API_KEY
@@ -227,6 +228,10 @@ open-redactor input.mp4 [--output out.mp4]
 ```
 
 Exit code is 0 on success. A run that finds zero matches still exits 0 and writes a clean copy with a log line saying nothing matched.
+
+## Keep one person visible
+
+Run a shadow audit first and the coverage report names every track, for example `person:0` and `person:1`. Then rerun with `--keep person:0` to leave that one person visible while everyone else stays redacted, or `--exclude person:1` to drop a track that turned out to be a false positive. Both flags repeat, both accept globs like `person:*`, and both work on photos too. Anything left visible is listed in the coverage report and the summary JSON, so the exception is part of the record.
 
 Integration commands use the same engine:
 

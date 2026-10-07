@@ -57,6 +57,16 @@ _OPTION_SCHEMA: dict[str, Any] = {
     "sensitive": {"type": "boolean", "default": False},
     "audio_mode": {"type": "string", "enum": ["keep", "mute", "pitch"], "default": "keep"},
     "pitch_factor": {"type": "number", "exclusiveMinimum": 0, "default": 0.8},
+    "keep": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Track keys to leave visible while everything else is redacted, for example person:0. Globs allowed. Keys are printed in the coverage report.",
+    },
+    "exclude": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Track keys to drop from redaction as false positives, for example person:1. Globs allowed.",
+    },
 }
 
 TOOLS: list[dict[str, Any]] = [

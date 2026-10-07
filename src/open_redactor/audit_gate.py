@@ -85,6 +85,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pii-text", action="store_true")
     parser.add_argument("--codes", action="store_true")
     parser.add_argument("--audio", choices=["keep", "mute", "pitch"], default="keep")
+    parser.add_argument("--keep", action="append", default=None, help="Leave a named track visible, out of the audit. Can be repeated")
+    parser.add_argument("--exclude", action="append", default=None, help="Drop a named track from the audit. Can be repeated")
     return parser
 
 
@@ -103,6 +105,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         pii_text=args.pii_text,
         codes=args.codes,
         audio_mode=args.audio,
+        keep=args.keep,
+        exclude=args.exclude,
     )
     return audit_files(args.paths, options=options, fail_on=args.fail_on, output_dir=args.output_dir)
 
