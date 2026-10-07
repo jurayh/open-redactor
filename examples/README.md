@@ -12,6 +12,11 @@ These commands show the v1 flows from the spec. Media from a live SAM 3.1 run li
 
 Source for the showcase was a short public portrait clip. Phrase was face. SAM returned one track across all 50 frames.
 
+## Public photo pack
+
+- showcase-public holds real world photos from Wikimedia Commons with originals, redacted outputs, and labeled panels: a market crowd with a keep-one-group variant, a license plate in pixelate mode, a trail group, and a trailhead sign
+- See showcase-public/README.md for the commands and counts, and showcase-public/ATTRIBUTION.md for authors and licenses
+
 ## Top demos
 
 - media/documents-demo.gif and documents-demo.jpg: a passport and bank card scene run through live SAM 3.1, blurred side by side

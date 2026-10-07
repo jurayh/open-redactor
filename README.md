@@ -33,6 +33,10 @@ open-redactor clip.mp4 --preset family --mode pixelate  # re-render free, detect
 
 ![Walkthrough](examples/media/walkthrough.gif)
 
+**Real world photos.** A market crowd from Wikimedia Commons: 28 people and 14 faces found in one pass, everyone blurred, and in the third panel one foreground group kept visible with `--keep`. The full pack in [examples/showcase-public](examples/showcase-public) adds a license plate in pixelate mode, a trail group photo, and a trailhead sign, all public licensed photos with attribution.
+
+![Market crowd, original, redacted, and one group kept visible](examples/showcase-public/market-crowd-panel.jpg)
+
 
 ## What it catches
 

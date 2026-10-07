@@ -152,21 +152,33 @@ def parse_output_text(output_text: str, phrase: str, shape: tuple[int, int]) -> 
         return result
 
     h, w = shape
-    # Live SAM token format with optional mask token right after the box
+    # Live SAM token format with optional mask token right after the box.
+    # A frame header <Nf>M opens a frame, and further boxes for that frame
+    # follow as bare box tokens with no header of their own. Bare boxes
+    # inherit the current frame and take sequential ordinals, so an image
+    # with one header and many boxes yields one track per box instead of
+    # silently dropping all but the first.
     import re
 
     token_pat = re.compile(
-        r"<(\d+)f>(\d+)<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);w=(\d+);h=(\d+)\|>"
+        r"(?:<(\d+)f>(\d+))?<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);w=(\d+);h=(\d+)\|>"
         r"(?:<\|mask;x=0;y=0;data=(\d+),(\d+),([^|]+)\|>)?"
     )
     found = False
     pending_decode: list[DetectedObject] = []
+    current_frame = 0
+    ordinal_counter = -1
     for m in token_pat.finditer(output_text):
         found = True
-        frame_index = int(m.group(1))
-        ordinal = m.group(2)
+        if m.group(1) is not None:
+            current_frame = int(m.group(1))
+            ordinal_counter = int(m.group(2))
+            track_id = m.group(2)
+        else:
+            ordinal_counter += 1
+            track_id = str(ordinal_counter)
+        frame_index = current_frame
         x0, y0, x1, y1 = int(m.group(3)), int(m.group(4)), int(m.group(5)), int(m.group(6))
-        track_id = str(ordinal)
         mask = np.zeros((h, w), dtype=bool)
         mask[max(0, y0): max(0, y1), max(0, x0): max(0, x1)] = True
         det = DetectedObject(
