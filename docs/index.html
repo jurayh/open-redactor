@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open Redactor: share-safe video and photos</title>
+  <meta name="description" content="Open Redactor is an open source CLI that finds people, faces, documents, numbers, codes, and places in video and photos, then blurs, pixelates, or replaces them with tracking that holds across frames.">
+  <meta property="og:title" content="Open Redactor">
+  <meta property="og:description" content="Drop in a clip or a photo, name what to hide, get a share-safe copy out.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/market-crowd-panel.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111827'/%3E%3Crect x='13' y='20' width='38' height='24' rx='5' fill='%23f8fafc'/%3E%3Crect x='24' y='27' width='16' height='10' rx='2' fill='%23dc2626'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #111827;
+      --muted: #5b6472;
+      --line: #e5e7eb;
+      --paper: #ffffff;
+      --wash: #f7f4ef;
+      --red: #c2410c;
+      --red-dark: #9a3412;
+      --blue: #1d4ed8;
+      --green: #047857;
+      --shadow: 0 24px 70px rgba(17, 24, 39, 0.14);
+      --radius: 24px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+      line-height: 1.55;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 68px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      color: var(--ink);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .brand:hover { text-decoration: none; }
+    .mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: var(--ink);
+      display: grid;
+      place-items: center;
+      color: white;
+      font-size: 18px;
+    }
+    .nav-links { display: flex; align-items: center; gap: 22px; font-size: 15px; }
+    .nav-links a { color: var(--ink); }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: white;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .button:hover { text-decoration: none; background: #1f2937; }
+    .button.secondary { background: white; color: var(--ink); border-color: var(--line); }
+    .button.secondary:hover { background: #f9fafb; }
+    .hero {
+      padding: 76px 0 58px;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(194, 65, 12, 0.13), transparent 30%),
+        radial-gradient(circle at 88% 4%, rgba(29, 78, 216, 0.10), transparent 32%),
+        linear-gradient(180deg, #fffaf4 0%, #ffffff 78%);
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 0.92fr 1.08fr;
+      gap: 46px;
+      align-items: center;
+    }
+    .eyebrow {
+      color: var(--red-dark);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      margin: 0 0 16px;
+    }
+    h1 {
+      font-size: clamp(44px, 6.2vw, 76px);
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+      margin: 0;
+    }
+    .lede {
+      color: var(--muted);
+      font-size: clamp(18px, 2vw, 21px);
+      line-height: 1.55;
+      margin: 24px 0 0;
+      max-width: 620px;
+    }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .install {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 22px;
+      padding: 10px 10px 10px 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+      max-width: 590px;
+      box-shadow: 0 10px 34px rgba(17, 24, 39, 0.06);
+    }
+    .install code {
+      flex: 1;
+      overflow-x: auto;
+      white-space: nowrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 14px;
+    }
+    .copy {
+      border: 0;
+      border-radius: 11px;
+      background: #eef2ff;
+      color: #1e40af;
+      font-weight: 800;
+      padding: 9px 12px;
+      cursor: pointer;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 24px; }
+    .chip {
+      border: 1px solid var(--line);
+      background: white;
+      border-radius: 999px;
+      padding: 7px 11px;
+      color: #374151;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    figure { margin: 0; }
+    .hero-media img, .panel img, .card img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .hero-media {
+      border-radius: 30px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(17, 24, 39, 0.08);
+      background: #111827;
+    }
+    figcaption { color: var(--muted); font-size: 14px; margin-top: 12px; }
+    section { padding: 74px 0; }
+    .section-head { max-width: 760px; margin-bottom: 34px; }
+    h2 {
+      font-size: clamp(31px, 4vw, 48px);
+      line-height: 1.06;
+      letter-spacing: -0.04em;
+      margin: 0 0 14px;
+    }
+    .section-head p { color: var(--muted); font-size: 18px; margin: 0; }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      overflow: hidden;
+      background: white;
+      box-shadow: 0 18px 55px rgba(17, 24, 39, 0.09);
+    }
+    .panel-body { padding: 24px; }
+    .panel-body h3, .card h3 { margin: 0 0 8px; font-size: 21px; letter-spacing: -0.02em; }
+    .panel-body p, .card p { color: var(--muted); margin: 0; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 22px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: white;
+      padding: 24px;
+    }
+    .card.image-card { padding: 0; overflow: hidden; }
+    .card.image-card .card-text { padding: 22px 24px 24px; }
+    .icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      background: #fff7ed;
+      font-size: 21px;
+      margin-bottom: 16px;
+    }
+    .band { background: var(--wash); border-top: 1px solid #eee7dc; border-bottom: 1px solid #eee7dc; }
+    .terminal {
+      border-radius: 26px;
+      background: #111827;
+      color: #e5e7eb;
+      padding: 26px;
+      box-shadow: var(--shadow);
+      overflow-x: auto;
+    }
+    .terminal pre { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; line-height: 1.65; }
+    .terminal .dim { color: #9ca3af; }
+    .terminal .good { color: #6ee7b7; }
+    .terminal .warn { color: #fbbf24; }
+    .steps { counter-reset: step; display: grid; gap: 14px; }
+    .step {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 16px;
+      align-items: start;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: white;
+    }
+    .step::before {
+      counter-increment: step;
+      content: counter(step);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--ink);
+      color: white;
+      font-weight: 800;
+    }
+    .step h3 { margin: 0 0 5px; font-size: 18px; }
+    .step p { margin: 0; color: var(--muted); }
+    .note {
+      border-left: 4px solid var(--red);
+      background: #fff7ed;
+      padding: 18px 20px;
+      border-radius: 0 18px 18px 0;
+      color: #7c2d12;
+    }
+    footer {
+      padding: 38px 0 46px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      font-size: 14px;
+    }
+    .footer-row { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; }
+    @media (max-width: 860px) {
+      .nav-links a:not(.button) { display: none; }
+      .hero { padding-top: 48px; }
+      .hero-grid, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .install { align-items: stretch; flex-direction: column; }
+      .copy { width: 100%; }
+      section { padding: 54px 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="#top" aria-label="Open Redactor home">
+        <span class="mark">▦</span>
+        <span>Open Redactor</span>
+      </a>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#proof">Proof</a>
+        <a href="#catches">What it catches</a>
+        <a href="#trust">Trust</a>
+        <a href="#install">Install</a>
+        <a class="button" href="https://github.com/jurayh/open-redactor">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <div class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow">Open source video and photo redaction</p>
+          <h1>Share the moment. Hide what identifies people.</h1>
+          <p class="lede">Drop in a clip or a photo, name what to hide, and get a share-safe copy out. Open Redactor tracks people, faces, documents, numbers, codes, and places across frames, then blurs, pixelates, or replaces them.</p>
+          <div class="cta-row">
+            <a class="button" href="https://github.com/jurayh/open-redactor">View on GitHub</a>
+            <a class="button secondary" href="https://pypi.org/project/open-redactor/">Get it on PyPI</a>
+          </div>
+          <div class="install" aria-label="Install command">
+            <code id="install-command">pip install open-redactor</code>
+            <button class="copy" type="button" data-copy="pip install open-redactor">Copy</button>
+          </div>
+          <div class="chips" aria-label="Highlights">
+            <span class="chip">SAM 3.1 tracking</span>
+            <span class="chip">Local mode</span>
+            <span class="chip">Coverage report</span>
+            <span class="chip">Photos and video</span>
+            <span class="chip">Apache-2.0</span>
+          </div>
+        </div>
+        <figure>
+          <div class="hero-media">
+            <img src="assets/hero.gif" alt="A video frame shown before and after face redaction">
+          </div>
+          <figcaption>Original on the left, redacted output on the right. The face track held across all 50 frames in a live SAM 3.1 run.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <section id="proof">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Proof before promises</h2>
+          <p>Real public photos, real detections, and the exact kind of scenes people actually share. Every scene below is in the public showcase pack with originals, outputs, and attribution.</p>
+        </div>
+        <article class="panel">
+          <img src="assets/market-crowd-panel.jpg" alt="Market crowd shown as original, fully redacted, and with one group kept visible" loading="lazy">
+          <div class="panel-body">
+            <h3>A crowd is not one face</h3>
+            <p>One pass found 28 people and 14 faces in this market photo. The third panel shows the review flow at work. Pick one tracked group, keep it visible, and leave everyone else covered.</p>
+          </div>
+        </article>
+        <div class="grid-2">
+          <article class="card image-card">
+            <img src="assets/car-plate-panel.jpg" alt="A car shown before and after license plate pixelation" loading="lazy">
+            <div class="card-text">
+              <h3>Plates need a decisive cover</h3>
+              <p>A large plate can stay readable under gentle blur. Pixelate mode makes the cover obvious and final.</p>
+            </div>
+          </article>
+          <article class="card image-card">
+            <img src="assets/trailhead-panel.jpg" alt="A trailhead sign shown before and after redaction" loading="lazy">
+            <div class="card-text">
+              <h3>Places identify people too</h3>
+              <p>Street signs, trailheads, house numbers, plates, and mailboxes can give away where a photo was taken. The location preset covers them together.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="catches" class="band">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>What it catches</h2>
+          <p>One command can stack visual detection, document targets, printed text, codes, location clues, and voice treatment.</p>
+        </div>
+        <div class="grid-3">
+          <article class="card"><div class="icon">◉</div><h3>People and faces</h3><p>Prompt for a person, a face, or another object in plain words. Tracks are padded and carried through brief dropouts.</p></article>
+          <article class="card"><div class="icon">▤</div><h3>Documents</h3><p>Passports, credit cards, driver licenses, ID cards, documents, and name badges with the documents preset.</p></article>
+          <article class="card"><div class="icon">⌗</div><h3>Printed secrets</h3><p>OCR finds card numbers, Social Security numbers, phone numbers, and emails. Card numbers must pass the Luhn check before they count.</p></article>
+          <article class="card"><div class="icon">▦</div><h3>Codes</h3><p>QR codes and barcodes can carry payment links, Wi-Fi passwords, and contact cards. Code regions get an opaque fill before any blur.</p></article>
+          <article class="card"><div class="icon">⌖</div><h3>Location clues</h3><p>Signs, house numbers, mailboxes, and plates are often the detail that turns a nice photo into a map pin.</p></article>
+          <article class="card"><div class="icon">♪</div><h3>Voices</h3><p>Keep the audio, mute it, or pitch shift it so speech remains useful while the speaker is harder to recognize.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Three ways to hide something</h2>
+          <p>Choose the look that fits the share. Detection is cached, so changing the mode is a re-render, not another detection bill.</p>
+        </div>
+        <div class="grid-3">
+          <article class="card"><h3>Blur</h3><p>The clean default for family clips, work recordings, and photos where the scene should still feel natural.</p></article>
+          <article class="card"><h3>Pixelate</h3><p>The classic redaction look. Best for plates, screens, and large high contrast details that must not stay readable.</p></article>
+          <article class="card"><h3>Replace</h3><p>A generated stand-in takes the place of a face, plate, number, or printed secret. The same track keeps the same fake across the clip.</p></article>
+        </div>
+        <div class="grid-2">
+          <article class="card image-card">
+            <img src="assets/replace-demo.jpg" alt="A portrait where replace mode swapped the face for a neutral synthetic avatar" loading="lazy">
+            <div class="card-text"><h3>Replace mode</h3><p>The face becomes a neutral synthetic avatar while the photo around it stays untouched.</p></div>
+          </article>
+          <article class="card image-card">
+            <img src="assets/screen-share-demo.jpg" alt="A checkout form where card, email, and phone values were replaced with fakes" loading="lazy">
+            <div class="card-text"><h3>Screen shares</h3><p>The text layer caught the card number, email, and phone in a checkout form and swapped in format valid fakes.</p></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="trust" class="band">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Trust first, share second</h2>
+          <p>Redaction fails quietly in most tools. Open Redactor is built to show its work before and after the render.</p>
+        </div>
+        <div class="grid-2">
+          <div class="steps">
+            <div class="step"><div><h3>Preview the first seconds</h3><p>Render a short sample with a contact sheet before you commit to a full clip.</p></div></div>
+            <div class="step"><div><h3>Audit without changing anything</h3><p>Shadow mode lists every element, its frames, and a severity grade. Passports and card numbers grade critical.</p></div></div>
+            <div class="step"><div><h3>Read the coverage report</h3><p>Any gap longer than the carry window is flagged NEEDS REVIEW in plain words.</p></div></div>
+            <div class="step"><div><h3>Keep one person visible when that is the point</h3><p>Track keys from the report feed the keep and exclude flags, so exceptions stay visible in the record.</p></div></div>
+          </div>
+          <div class="terminal" aria-label="Example commands and audit output">
+<pre><span class="dim"># Audit first. Nothing is changed.</span>
+open-redactor clip.mp4 --shadow --preset documents --sensitive
+
+<span class="warn">CRITICAL</span> passport on 184 frames
+<span class="warn">CRITICAL</span> credit card number on 96 frames
+<span class="good">HIGH</span> face on 240 frames
+
+<span class="dim"># Then render with proof.</span>
+open-redactor clip.mp4 --preset documents --sensitive
+cat clip.redacted.coverage.txt</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Run it where you trust it</h2>
+          <p>The default backend uses the Meta Model API for SAM 3.1. A hosted backend can point at your own endpoint. Local mode keeps footage on your machine.</p>
+        </div>
+        <div class="grid-3">
+          <article class="card"><h3>API</h3><p>Best quality with no GPU to manage. Your media goes to the API with your key.</p></article>
+          <article class="card"><h3>Hosted</h3><p>The same request shape pointed at a team server, a cloud GPU box, or your own deployment.</p></article>
+          <article class="card"><h3>Local</h3><p>Grounding DINO plus SAM 2 on your hardware. This is the mode for footage that should never be uploaded.</p></article>
+        </div>
+        <div class="note" style="margin-top:22px">
+          Honest limit: no detector is perfect. Use the preview, the audit, and the coverage report before sharing anything sensitive. False positives can be excluded by track key, and missed details are exactly what the review surfaces are for.
+        </div>
+      </div>
+    </section>
+
+    <section id="install" class="band">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Try it in 30 seconds</h2>
+          <p>Install the package, preview a clip, read the coverage line, then render the full copy.</p>
+        </div>
+        <div class="terminal">
+<pre>pip install open-redactor
+
+open-redactor clip.mp4 --preview --preset family
+cat clip.redacted.coverage.txt
+open-redactor clip.mp4 --preset family</pre>
+        </div>
+        <div class="cta-row">
+          <a class="button" href="https://github.com/jurayh/open-redactor">Star and read the code</a>
+          <a class="button secondary" href="https://github.com/jurayh/open-redactor/tree/main/examples/showcase-public">See the public showcase pack</a>
+          <a class="button secondary" href="https://github.com/jurayh/open-redactor/blob/main/docs/comparison.md">Compare tools honestly</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-row">
+      <span>Open Redactor is Apache-2.0 open source.</span>
+      <span>Public photos are from Wikimedia Commons. <a href="https://github.com/jurayh/open-redactor/blob/main/examples/showcase-public/ATTRIBUTION.md">Attribution</a></span>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('[data-copy]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var text = button.getAttribute('data-copy');
+        function done() {
+          var old = button.textContent;
+          button.textContent = 'Copied';
+          setTimeout(function () { button.textContent = old; }, 1400);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(done);
+        } else {
+          done();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
