@@ -216,7 +216,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return exit_code
 
     # Photo mode: image inputs go to the image pipeline, output keeps its format
-    if input_path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".bmp"}:
+    if input_path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".heic", ".heif"}:
         from .image_pipeline import run_image_pipeline
         out = Path(args.output) if args.output else unique_output_path(
             input_path.with_name(f"{input_path.stem}.redacted{input_path.suffix}")

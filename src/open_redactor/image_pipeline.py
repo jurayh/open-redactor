@@ -12,7 +12,55 @@ from .masks import build_per_frame_masks, select_tracks
 from .pipeline import apply_redaction_to_frame, apply_secure_fill
 from .sam_client import LocalSamStub, SamApiClient, SegmentationResult
 
-SUPPORTED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+SUPPORTED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".heic", ".heif"}
+HEIC_SUFFIXES = {".heic", ".heif"}
+
+HEIC_INSTALL_HINT = (
+    'HEIC and HEIF photos need the optional decoder. Install with: pip install "open-redactor[heic]"'
+)
+
+
+def _load_heif_frame(path: Path) -> np.ndarray:
+    """Decode a HEIC or HEIF photo to a BGR array via Pillow and pillow-heif."""
+    try:
+        import pillow_heif
+        from PIL import Image, ImageOps
+    except Exception as exc:
+        raise ValueError(f"{HEIC_INSTALL_HINT} Import failed: {exc}") from exc
+    pillow_heif.register_heif_opener()
+    with Image.open(path) as img:
+        upright = ImageOps.exif_transpose(img)
+        rgb = np.asarray(upright.convert("RGB"))
+    return rgb[:, :, ::-1].copy()
+
+
+def read_photo(path: Path) -> np.ndarray:
+    """Read a photo to a BGR array. HEIC and HEIF go through pillow-heif
+    because OpenCV cannot decode them. EXIF orientation is applied so
+    phone photos are processed upright."""
+    frame = cv2.imread(str(path))
+    if frame is not None:
+        return frame
+    if path.suffix.lower() in HEIC_SUFFIXES:
+        return _load_heif_frame(path)
+    raise ValueError(f"Could not read image: {path}")
+
+
+def write_photo(path: Path, frame_bgr: np.ndarray) -> None:
+    """Write a BGR frame, keeping the input format. HEIC and HEIF outputs
+    are encoded through Pillow with pillow-heif registered."""
+    if path.suffix.lower() in HEIC_SUFFIXES:
+        try:
+            import pillow_heif
+            from PIL import Image
+        except Exception as exc:
+            raise ValueError(f"{HEIC_INSTALL_HINT} Import failed: {exc}") from exc
+        pillow_heif.register_heif_opener()
+        rgb = frame_bgr[:, :, ::-1]
+        Image.fromarray(rgb).save(str(path), quality=90)
+        return
+    if not cv2.imwrite(str(path), frame_bgr):
+        raise RuntimeError(f"Could not write output image: {path}")
 
 
 def run_image_pipeline(
@@ -32,13 +80,24 @@ def run_image_pipeline(
     keep_tracks: Optional[List[str]] = None,
     exclude_tracks: Optional[List[str]] = None,
 ) -> Dict[str, object]:
-    frame = cv2.imread(str(input_path))
-    if frame is None:
-        raise ValueError(f"Could not read image: {input_path}")
+    frame = read_photo(input_path)
     height, width = frame.shape[:2]
     shape = (height, width)
     print(f"Input photo: {input_path} {width}x{height}")
     print(f"Targets: {', '.join(targets)}")
+
+    # Detection clients read a file path and the API expects PNG or JPEG
+    # bytes, so HEIC inputs are transcoded to a temp PNG for detection
+    # only. Redaction applies to the decoded original frame and the
+    # output keeps the HEIC format.
+    segment_path = input_path
+    _detect_tmp = None
+    if input_path.suffix.lower() in HEIC_SUFFIXES:
+        import tempfile
+
+        _detect_tmp = tempfile.TemporaryDirectory(prefix="open-redactor-heic-")
+        segment_path = Path(_detect_tmp.name) / "detect.png"
+        cv2.imwrite(str(segment_path), frame)
 
     resolved_backend = backend or ("local" if local else "api")
     resolved_provider = provider or ("grounding-sam" if resolved_backend == "local" else "sam")
@@ -59,7 +118,7 @@ def run_image_pipeline(
     total_objects = 0
     for phrase in targets:
         try:
-            result: SegmentationResult = client.segment_image(input_path, phrase, shape=shape)  # type: ignore[attr-defined]
+            result: SegmentationResult = client.segment_image(segment_path, phrase, shape=shape)  # type: ignore[attr-defined]
         except Exception as exc:
             print(f"Warning: SAM failed for phrase '{phrase}': {exc}")
             result = SegmentationResult(phrase=phrase)
@@ -140,7 +199,8 @@ def run_image_pipeline(
             print("Codes: opaque fill applied so the payload cannot be decoded from a blurred pattern")
         redacted = apply_redaction_to_frame(base_frame, masks[0], mode=mode if mode in ("blur", "pixelate") else "blur", strength=strength)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    if not cv2.imwrite(str(output_path), redacted):
-        raise RuntimeError(f"Could not write output image: {output_path}")
+    write_photo(output_path, redacted)
+    if _detect_tmp is not None:
+        _detect_tmp.cleanup()
     print(f"Wrote: {output_path}")
     return {"input": str(input_path), "output": str(output_path), "objects": total_objects, "photo": True, "kept_visible": left_visible}

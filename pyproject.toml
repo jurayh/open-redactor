@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-redactor"
-version = "0.2.6"
+version = "0.2.7"
 description = "Open-source CLI to make video share-safe with SAM 3.1 prompt-driven redaction"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -30,6 +30,7 @@ dev = [
   "pytest>=7.4",
   "pytest-cov>=4.1",
   "segno>=1.6",
+  "pillow-heif>=0.18",
 ]
 pii = [
   "pytesseract>=0.3.10",
@@ -46,6 +47,9 @@ server = [
   "fastapi>=0.110",
   "uvicorn>=0.29",
   "python-multipart>=0.0.9",
+]
+heic = [
+  "pillow-heif>=0.18",
 ]
 
 [project.scripts]

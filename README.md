@@ -147,7 +147,7 @@ The full setup guide is [docs/integrations.md](docs/integrations.md).
 
 ## Photos, formats, and the local page
 
-Photos work exactly like video. JPG, PNG, WebP, and BMP in, redacted photo out in the same format, with every preset and layer available.
+Photos work exactly like video. JPG, PNG, WebP, BMP, and HEIC or HEIF in, redacted photo out in the same format, with every preset and layer available. HEIC is the iPhone default and needs the one-time extra `pip install "open-redactor[heic]"`.
 
 ```bash
 open-redactor photo.jpg --preset documents --sensitive

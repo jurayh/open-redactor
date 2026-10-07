@@ -3,7 +3,7 @@
 from typing import Any
 
 __all__ = ["__version__", "RedactionOptions", "RedactionResult", "audit", "audit_media", "redact", "redact_media"]
-__version__ = "0.2.6"
+__version__ = "0.2.7"
 
 
 def __getattr__(name: str) -> Any:
