@@ -30,7 +30,9 @@ Audio defaults to keep, so the original voices ship unless you choose otherwise.
 
 Preview renders only the first 3 seconds. A clean preview does not prove the whole clip, the coverage report on the full run is the audit.
 
-Pixel-perfect masks need Node and @meta-sam/parser on the machine. Without them the run falls back to box masks with padding and carry, which is safe but less tight.
+Pixel-perfect masks need Node and @meta-sam/parser on the machine. Without them the run falls back to box masks with padding and carry, which is safe but less tight. The summary JSON records which one a run actually used as `sam_mask_source`, so the claim is checkable instead of assumed.
+
+Blur strength adapts to region size. The default kernel is sized for faces, and a large plate or sign blurred at that strength can stay readable, so bigger regions are rendered in their own layer with a kernel scaled to their size. When setup is in doubt, run `open-redactor doctor`: it checks ffmpeg, the mask decoder, OCR engines, the optional extras, and whether the API key env var is set, and prints the install line for anything missing. It never prints the key itself.
 
 Detection can miss. Padding, carry-forward, and gap flags reduce the leak risk, and the contact sheet is your final human check. Treat any NEEDS REVIEW line in a coverage report as a stop before sharing.
 

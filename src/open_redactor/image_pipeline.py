@@ -116,6 +116,7 @@ def run_image_pipeline(
 
     all_tracks: Dict[str, Dict[int, np.ndarray]] = {}
     total_objects = 0
+    sam_sources: List[str] = []
     for phrase in targets:
         try:
             result: SegmentationResult = client.segment_image(segment_path, phrase, shape=shape)  # type: ignore[attr-defined]
@@ -123,6 +124,8 @@ def run_image_pipeline(
             print(f"Warning: SAM failed for phrase '{phrase}': {exc}")
             result = SegmentationResult(phrase=phrase)
         total_objects += len(result.objects)
+        if result.objects:
+            sam_sources.append(result.mask_source)
         for track_id, frame_map in result.tracks.items():
             merged: Dict[int, np.ndarray] = {}
             for _fidx, m in frame_map.items():
@@ -197,10 +200,32 @@ def run_image_pipeline(
             )
             base_frame = apply_secure_fill(frame, code_masks[0])
             print("Codes: opaque fill applied so the payload cannot be decoded from a blurred pattern")
-        redacted = apply_redaction_to_frame(base_frame, masks[0], mode=mode if mode in ("blur", "pixelate") else "blur", strength=strength)
+        if mode == "blur" and all_tracks:
+            from .pipeline import build_blur_layers
+
+            layers = build_blur_layers(
+                tracks=all_tracks, total_frames=1, shape=shape,
+                margin=mask_margin, carry_frames=0, base_strength=strength,
+            )
+            top_kernel = max(k for _m, k in layers)
+            if top_kernel > strength:
+                print(f"Adaptive blur: large regions use up to kernel {top_kernel} so they stay unreadable")
+            redacted = base_frame
+            for layer_masks, kernel in layers:
+                redacted = apply_redaction_to_frame(redacted, layer_masks[0], mode="blur", strength=kernel)
+        else:
+            redacted = apply_redaction_to_frame(base_frame, masks[0], mode=mode if mode in ("blur", "pixelate") else "blur", strength=strength)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     write_photo(output_path, redacted)
     if _detect_tmp is not None:
         _detect_tmp.cleanup()
     print(f"Wrote: {output_path}")
-    return {"input": str(input_path), "output": str(output_path), "objects": total_objects, "photo": True, "kept_visible": left_visible}
+    if not sam_sources:
+        sam_mask_source = "none"
+    elif all(s == "pixel" for s in sam_sources):
+        sam_mask_source = "pixel"
+    elif all(s == "box" for s in sam_sources):
+        sam_mask_source = "box"
+    else:
+        sam_mask_source = "mixed"
+    return {"input": str(input_path), "output": str(output_path), "objects": total_objects, "photo": True, "kept_visible": left_visible, "sam_mask_source": sam_mask_source}

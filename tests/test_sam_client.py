@@ -66,3 +66,38 @@ def test_parse_explicit_video_tokens_unchanged():
     assert len(result.objects) == 3
     assert set(result.tracks["0"].keys()) == {0, 1}
     assert set(result.tracks["1"].keys()) == {1}
+
+
+def test_parse_mask_source_box_without_mask_tokens():
+    text = "<0f>0<|box;x1=10;y1=10;x2=60;y2=90;w=200;h=100|>"
+    result = parse_output_text(text, phrase="person", shape=(100, 200))
+    assert result.mask_source == "box"
+
+
+def test_parse_mask_source_pixel_when_decode_places_rasters(monkeypatch):
+    import numpy as np
+
+    import open_redactor.mask_decode as mask_decode
+
+    def fake_decode(items):
+        return [np.ones((int(i["height"]), int(i["width"])), dtype=bool) for i in items]
+
+    monkeypatch.setattr(mask_decode, "decode_masks_batch", fake_decode)
+    text = (
+        "<0f>0<|box;x1=10;y1=10;x2=60;y2=90;w=200;h=100|>"
+        "<|mask;x=0;y=0;data=80,50,AAAA|>"
+    )
+    result = parse_output_text(text, phrase="person", shape=(100, 200))
+    assert result.mask_source == "pixel"
+
+
+def test_parse_mask_source_box_when_decode_unavailable(monkeypatch):
+    import open_redactor.mask_decode as mask_decode
+
+    monkeypatch.setattr(mask_decode, "decode_masks_batch", lambda items: None)
+    text = (
+        "<0f>0<|box;x1=10;y1=10;x2=60;y2=90;w=200;h=100|>"
+        "<|mask;x=0;y=0;data=80,50,AAAA|>"
+    )
+    result = parse_output_text(text, phrase="person", shape=(100, 200))
+    assert result.mask_source == "box"

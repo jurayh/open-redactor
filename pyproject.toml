@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-redactor"
-version = "0.2.8"
+version = "0.2.9"
 description = "Open-source CLI to make video share-safe with SAM 3.1 prompt-driven redaction"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -57,6 +57,7 @@ open-redactor = "open_redactor.cli:main"
 open-redactor-mcp = "open_redactor.mcp_server:main"
 open-redactor-audit = "open_redactor.audit_gate:main"
 open-redactor-server = "open_redactor.server:main"
+open-redactor-doctor = "open_redactor.doctor:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -60,6 +60,7 @@ def build_summary(
     audio_mode: str = "keep",
     shadow: bool = False,
     kept_visible: Optional[List[str]] = None,
+    sam_mask_source: str = "none",
 ) -> dict:
     elements: List[dict] = []
     frames_with_hits: set[int] = set()
@@ -105,6 +106,7 @@ def build_summary(
         "audio_mode": audio_mode,
         "audio_note": audio_note,
         "kept_visible": list(kept_visible or []),
+        "sam_mask_source": sam_mask_source,
         "elements": elements,
     }
 
@@ -122,6 +124,14 @@ def summary_text(summary: dict) -> str:
         f"Elements: {summary['elements_found']} total, {c['critical']} critical, {c['high']} high, {c['medium']} medium"
     )
     lines.append(f"Exposure score before action: {summary['exposure_score']}")
+    source = summary.get("sam_mask_source", "none")
+    if source != "none":
+        source_notes = {
+            "pixel": "decoded pixel masks",
+            "mixed": "a mix of pixel and box masks",
+            "box": "box masks, pixel decode unavailable",
+        }
+        lines.append(f"SAM mask source: {source} ({source_notes.get(source, source)})")
     lines.append(f"Audio: {summary['audio_note']}")
     if summary.get("kept_visible"):
         lines.append(f"Left visible by request, not redacted: {', '.join(summary['kept_visible'])}")

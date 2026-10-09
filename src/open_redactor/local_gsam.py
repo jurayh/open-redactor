@@ -135,7 +135,7 @@ class LocalGroundingSamClient:
         from PIL import Image
 
         height, width = shape
-        result = SegmentationResult(phrase=phrase)
+        result = SegmentationResult(phrase=phrase, mask_source="pixel")
         tracker = IouTracker()
         cap = cv2.VideoCapture(str(video_path))
         frame_idx = 0

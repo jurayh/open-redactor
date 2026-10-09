@@ -233,6 +233,8 @@ open-redactor input.mp4 [--output out.mp4]
 
 Exit code is 0 on success. A run that finds zero matches still exits 0 and writes a clean copy with a log line saying nothing matched.
 
+Blur strength adapts to region size. A fixed kernel leaves a large plate readable, so regions bigger than a face get a proportionally stronger kernel in their own layer while faces keep the strength you asked for. Batch runs also write one `batch-summary.json` next to the per-file summaries, and every summary JSON records `sam_mask_source` as pixel, mixed, or box so mask quality is checkable after the fact. Run `open-redactor doctor` for a one-screen report of what this machine can and cannot do, with the install line for anything missing.
+
 ## Keep one person visible
 
 Run a shadow audit first and the coverage report names every track, for example `person:0` and `person:1`. Then rerun with `--keep person:0` to leave that one person visible while everyone else stays redacted, or `--exclude person:1` to drop a track that turned out to be a false positive. Both flags repeat, both accept globs like `person:*`, and both work on photos too. Anything left visible is listed in the coverage report and the summary JSON, so the exception is part of the record.
@@ -243,6 +245,7 @@ Integration commands use the same engine:
 open-redactor-mcp       # MCP tools for agent suites over stdio
 open-redactor-audit     # audit files and fail on configured severity
 open-redactor-server    # optional HTTP wrapper on 127.0.0.1 by default
+open-redactor-doctor    # environment check with a fix line per missing piece
 ```
 
 ## Install

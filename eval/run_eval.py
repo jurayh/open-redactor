@@ -82,6 +82,7 @@ def predictions_for_clip(clip: dict, frames: List[np.ndarray]) -> Dict[int, List
 
 
 def main() -> int:
+    gate = "--gate" in sys.argv
     gt = json.loads((DATA / "ground_truth.json").read_text())
     OUT.mkdir(exist_ok=True)
     cards = []
@@ -118,6 +119,34 @@ def main() -> int:
     (OUT / "report-card.md").write_text("\n".join(lines))
     (OUT / "report-card.json").write_text(json.dumps(cards, indent=2))
     print("\n".join(lines))
+    if gate:
+        # Floors sit a margin below the recorded reference scores so real
+        # regressions fail CI while measurement noise does not.
+        floors = {
+            "qr-static": (0.99, 0.70),
+            "screen-form": (0.99, 0.64),
+            "badge-moving": (0.70, 0.70),
+        }
+        failures = []
+        for c in cards:
+            if c["status"] != "scored":
+                failures.append(f"{c['clip']}: not scored ({c['status']})")
+                continue
+            floor = floors.get(c["clip"])
+            if floor is None:
+                continue
+            recall = c["detection"]["recall_at_iou"]
+            mean_iou = c["detection"]["mean_best_iou"]
+            if recall < floor[0]:
+                failures.append(f"{c['clip']}: recall {recall:.2f} below floor {floor[0]:.2f}")
+            if mean_iou < floor[1]:
+                failures.append(f"{c['clip']}: mean IoU {mean_iou:.2f} below floor {floor[1]:.2f}")
+        if failures:
+            print("EVAL GATE: FAIL")
+            for failure in failures:
+                print(f"- {failure}")
+            return 1
+        print("EVAL GATE: PASS")
     return 0
 
 

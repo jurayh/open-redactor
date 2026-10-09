@@ -184,6 +184,83 @@ def apply_redaction_to_frame(
     return out
 
 
+KERNEL_BUCKETS = (41, 81, 161, 301)
+
+
+def _odd_at_least(value: int, floor: int) -> int:
+    k = max(int(value), int(floor))
+    return k if k % 2 == 1 else k + 1
+
+
+def blur_kernel_for_region(base_strength: int, min_dim: int) -> int:
+    """Blur kernel for one region, scaled to the region size.
+
+    A fixed kernel leaves large high contrast regions readable: a plate
+    80 pixels tall blurred at the default strength still shows its
+    characters. The kernel therefore grows with the smaller side of the
+    region, at three quarters of that side, rounded up to a small set of
+    buckets so a frame needs only a few blurred layers. Small regions
+    such as faces keep the caller's strength untouched.
+    """
+    base = _odd_at_least(base_strength, 1)
+    needed = _odd_at_least(int(np.ceil(0.75 * max(0, min_dim))), 1)
+    if needed <= base:
+        return base
+    for bucket in KERNEL_BUCKETS:
+        if needed <= bucket:
+            return bucket
+    return KERNEL_BUCKETS[-1]
+
+
+def mask_min_dim(mask: np.ndarray) -> int:
+    """Smaller side of the mask bounding box, or 0 for an empty mask."""
+    ys, xs = np.where(mask)
+    if len(xs) == 0:
+        return 0
+    return int(min(xs.max() - xs.min() + 1, ys.max() - ys.min() + 1))
+
+
+def track_typical_min_dim(frame_map: Dict[int, np.ndarray]) -> int:
+    """Median smaller-side size across a track's detected frames."""
+    dims = [mask_min_dim(m) for m in frame_map.values()]
+    dims = [d for d in dims if d > 0]
+    if not dims:
+        return 0
+    return int(np.median(dims))
+
+
+def build_blur_layers(
+    tracks: Dict[str, Dict[int, np.ndarray]],
+    total_frames: int,
+    shape: tuple[int, int],
+    margin: int,
+    carry_frames: int,
+    base_strength: int,
+) -> List[tuple[List[np.ndarray], int]]:
+    """Group tracks by adaptive blur kernel and build masks per group.
+
+    Returns (per-frame masks, kernel) layers ordered by kernel. Tracks
+    whose regions are small stay in the base layer at the caller's
+    strength, so the common case renders exactly as before.
+    """
+    groups: Dict[int, Dict[str, Dict[int, np.ndarray]]] = {}
+    for key, frame_map in tracks.items():
+        kernel = blur_kernel_for_region(base_strength, track_typical_min_dim(frame_map))
+        groups.setdefault(kernel, {})[key] = frame_map
+    layers: List[tuple[List[np.ndarray], int]] = []
+    for kernel in sorted(groups.keys()):
+        masks = build_per_frame_masks(
+            tracks=groups[kernel],
+            total_frames=total_frames,
+            shape=shape,
+            margin=margin,
+            carry_frames=carry_frames,
+            smooth_radius=1,
+        )
+        layers.append((masks, kernel))
+    return layers
+
+
 def apply_secure_fill(frame: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """Cover a region with a solid fill that cannot be decoded or sharpened.
 
@@ -230,6 +307,7 @@ def render_video(
     audio_mode: str = "keep",
     pitch_factor: float = 0.8,
     shadow: bool = False,
+    mask_layers: Optional[List[tuple[List[np.ndarray], int]]] = None,
 ) -> Path:
     """Render redacted frames to MP4 and mux audio when present."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -243,8 +321,14 @@ def render_video(
     start_t = time.time()
     last_pct = -10
     for idx, frame in enumerate(frames):
-        mask = masks[idx] if idx < len(masks) else np.zeros((info.height, info.width), dtype=bool)
-        redacted = apply_redaction_to_frame(frame, mask, mode=mode, strength=strength)
+        if mask_layers:
+            redacted = frame
+            for layer_masks, kernel in mask_layers:
+                layer_mask = layer_masks[idx] if idx < len(layer_masks) else np.zeros((info.height, info.width), dtype=bool)
+                redacted = apply_redaction_to_frame(redacted, layer_mask, mode="blur", strength=kernel)
+        else:
+            mask = masks[idx] if idx < len(masks) else np.zeros((info.height, info.width), dtype=bool)
+            redacted = apply_redaction_to_frame(frame, mask, mode=mode, strength=strength)
         writer.write(redacted)
         if total > 0:
             pct = int((idx+1)/total*100)
@@ -467,6 +551,7 @@ def run_pipeline(
 
     all_tracks: Dict[str, Dict[int, np.ndarray]] = {}
     total_objects = 0
+    sam_sources: List[str] = []
     for phrase in targets:
         try:
             result: SegmentationResult = client.segment_video(api_input, phrase, shape=shape)  # type: ignore[arg-type]
@@ -475,6 +560,8 @@ def run_pipeline(
             print(f"Warning: SAM failed for phrase '{phrase}': {exc}")
             result = SegmentationResult(phrase=phrase)
         total_objects += len(result.objects)
+        if result.objects:
+            sam_sources.append(result.mask_source)
         for track_id, frame_map in result.tracks.items():
             # Namespace track ids by phrase to avoid collisions
             key = f"{phrase}:{track_id}"
@@ -574,7 +661,15 @@ def run_pipeline(
 
     # Analytics summary, shared by shadow audits and real runs
     from .analytics import build_summary, summary_text, write_summary_files
-    summary = build_summary(all_tracks, total_frames, audio_mode=audio_mode, shadow=shadow, kept_visible=left_visible)
+    if not sam_sources:
+        sam_mask_source = "none"
+    elif all(s == "pixel" for s in sam_sources):
+        sam_mask_source = "pixel"
+    elif all(s == "box" for s in sam_sources):
+        sam_mask_source = "box"
+    else:
+        sam_mask_source = "mixed"
+    summary = build_summary(all_tracks, total_frames, audio_mode=audio_mode, shadow=shadow, kept_visible=left_visible, sam_mask_source=sam_mask_source)
 
     if shadow:
         paths = write_summary_files(summary, output_path, shadow=True)
@@ -629,6 +724,23 @@ def run_pipeline(
         render_masks = [np.zeros(shape, dtype=bool) for _ in range(total_frames)]
         print("Replace mode: sensitive regions swapped for generated stand-ins")
 
+    # Adaptive blur layers: tracks grouped by a kernel scaled to region
+    # size, so a large plate or sign gets a far stronger cover than the
+    # base strength while faces keep the caller's strength.
+    blur_layers = None
+    if mode == "blur" and all_tracks:
+        blur_layers = build_blur_layers(
+            tracks=all_tracks,
+            total_frames=total_frames,
+            shape=shape,
+            margin=mask_margin,
+            carry_frames=carry_frames,
+            base_strength=strength,
+        )
+        top_kernel = max(k for _m, k in blur_layers)
+        if top_kernel > strength:
+            print(f"Adaptive blur: large regions use up to kernel {top_kernel} so they stay unreadable")
+
     # Coverage report
     report_path: Optional[Path] = None
     if report or preview:
@@ -663,6 +775,7 @@ def run_pipeline(
             strength=strength,
             audio_mode=audio_mode,
             pitch_factor=pitch_factor,
+            mask_layers=blur_layers,
         )
         print(f"Preview sample: {preview_output} ({sample_frames} frames)")
         contact_path = output_path.with_suffix(".contact.png")
@@ -690,6 +803,7 @@ def run_pipeline(
         strength=strength,
         audio_mode=audio_mode,
         pitch_factor=pitch_factor,
+        mask_layers=blur_layers,
     )
     if info.has_audio and audio_mode != "keep":
         print(f"Audio redaction applied: {audio_mode}")

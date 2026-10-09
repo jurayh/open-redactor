@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -60,6 +61,51 @@ def unique_output_path(path: Path) -> Path:
         if not candidate.exists():
             return candidate
     return path
+
+
+def write_batch_rollup(summary_paths: List[Path], dest_dir: Path) -> Path:
+    """Aggregate per-file summary JSON files into one batch summary.
+
+    Batch runs already write a .summary.json per file. The roll-up sums
+    elements and severity counts across the batch so a folder of clips
+    gets one answer to "what did we find" instead of one file per clip.
+    """
+    totals = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    files: List[dict] = []
+    total_elements = 0
+    total_frames_affected = 0
+    kept_visible_count = 0
+    for path in summary_paths:
+        try:
+            data = json.loads(path.read_text())
+        except Exception:
+            continue
+        counts = data.get("severity_counts", {})
+        for key in totals:
+            totals[key] += int(counts.get(key, 0))
+        total_elements += int(data.get("elements_found", 0))
+        total_frames_affected += int(data.get("frames_with_sensitive_elements", 0))
+        kept_visible_count += len(data.get("kept_visible", []))
+        files.append(
+            {
+                "summary": str(path),
+                "elements_found": int(data.get("elements_found", 0)),
+                "severity_counts": counts,
+                "exposure_score": data.get("exposure_score"),
+            }
+        )
+    rollup = {
+        "files_processed": len(files),
+        "elements_found": total_elements,
+        "severity_counts": totals,
+        "frames_with_sensitive_elements": total_frames_affected,
+        "kept_visible_count": kept_visible_count,
+        "files": files,
+    }
+    dest = unique_output_path(dest_dir / "batch-summary.json")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(rollup, indent=2))
+    return dest
 
 
 def process_one(
@@ -133,6 +179,12 @@ def process_one(
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    raw = list(argv) if argv is not None else sys.argv[1:]
+    if raw and raw[0] == "doctor":
+        from .doctor import main as doctor_main
+
+        return doctor_main(raw[1:])
+
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -180,12 +232,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"No supported video files found in {input_path}")
             return 0
         exit_code = 0
+        summary_paths: List[Path] = []
         for mp4 in mp4s:
             out = None
             if args.output:
                 # In batch mode --output is treated as an output directory
                 out_dir = Path(args.output)
                 out = out_dir / default_output_path(mp4).name
+            expected_out = out if out is not None else default_output_path(mp4)
             code = process_one(
                 input_path=mp4,
                 output_path=out,
@@ -211,8 +265,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                 keep_tracks=args.keep,
                 exclude_tracks=args.exclude,
             )
+            candidate = expected_out.with_suffix(".summary.json")
+            if code == 0 and candidate.exists():
+                summary_paths.append(candidate)
             if code != 0:
                 exit_code = code
+        if summary_paths:
+            dest_dir = Path(args.output) if args.output else input_path
+            rollup_path = write_batch_rollup(summary_paths, dest_dir)
+            print(f"Batch summary: {rollup_path}")
         return exit_code
 
     # Photo mode: image inputs go to the image pipeline, output keeps its format

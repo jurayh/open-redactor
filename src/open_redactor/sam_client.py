@@ -56,6 +56,9 @@ class SegmentationResult:
     # per-frame masks keyed by track then frame
     tracks: Dict[str, Dict[int, np.ndarray]] = field(default_factory=dict)
     raw_output_text: str = ""
+    # Where the masks came from: "pixel" for decoded raster masks,
+    # "mixed" when only some decoded, "box" for box fallbacks.
+    mask_source: str = "box"
 
 
 def resolve_targets(
@@ -204,6 +207,7 @@ def parse_output_text(output_text: str, phrase: str, shape: tuple[int, int]) -> 
         result.tracks.setdefault(track_id, {})[frame_index] = mask
     if found:
         # Try pixel-perfect raster decode when Node and @meta-sam/parser are present
+        placed = 0
         if pending_decode:
             try:
                 from .mask_decode import decode_masks_batch
@@ -214,7 +218,6 @@ def parse_output_text(output_text: str, phrase: str, shape: tuple[int, int]) -> 
                 ]
                 decoded = decode_masks_batch(items)  # type: ignore[arg-type]
                 if decoded is not None:
-                    placed = 0
                     for det, raster in zip(pending_decode, decoded):
                         if raster is None:
                             continue
@@ -238,6 +241,10 @@ def parse_output_text(output_text: str, phrase: str, shape: tuple[int, int]) -> 
                         print(f"Decoded {placed} pixel masks via @meta-sam/parser")
             except Exception as exc:
                 print(f"Mask decode unavailable, using box masks: {exc}")
+        if pending_decode and placed == len(pending_decode):
+            result.mask_source = "pixel"
+        elif placed:
+            result.mask_source = "mixed"
         return result
 
     # JSON lines fallback for local testing and recorded fixtures
