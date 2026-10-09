@@ -39,6 +39,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--keep", action="append", default=None, help="Leave a named track visible while everything else is redacted, for example --keep person:0. Track keys are printed in the coverage report. Can be repeated, globs allowed")
     p.add_argument("--exclude", action="append", default=None, help="Drop a named track from redaction as a false positive, for example --exclude person:1. Can be repeated, globs allowed")
     p.add_argument("--audio", choices=["keep", "mute", "pitch"], default="keep", help="Audio redaction: keep the original track, mute it, or pitch shift voices")
+    p.add_argument("--speech-pii", action="store_true", help="Transcribe the audio locally and mute spoken card numbers, SSNs, phone numbers, and emails")
+    p.add_argument("--transcript", default=None, help="Use a Whisper JSON transcript with word timings for the speech layer instead of transcribing")
     p.add_argument("--pitch-factor", type=float, default=0.8, help="Pitch multiplier for --audio pitch. Below 1 deepens, above 1 raises")
     p.add_argument("--provider", choices=["sam", "grounding-sam"], default=None, help="Model provider: SAM via API or hosted, or Grounding SAM locally")
     p.add_argument("--backend", choices=["api", "hosted", "local"], default=None, help="Where SAM runs: Meta Model API, your own hosted endpoint, or local open weights")
@@ -132,6 +134,9 @@ def process_one(
     shadow: bool = False,
     keep_tracks: Optional[List[str]] = None,
     exclude_tracks: Optional[List[str]] = None,
+    speech_pii: bool = False,
+    speech_soft: bool = False,
+    transcript_path: Optional[Path] = None,
 ) -> int:
     out = output_path if output_path else default_output_path(input_path)
     if output_path is not None:
@@ -165,6 +170,9 @@ def process_one(
             shadow=shadow,
             keep_tracks=keep_tracks,
             exclude_tracks=exclude_tracks,
+            speech_pii=speech_pii,
+            speech_soft=speech_soft,
+            transcript_path=transcript_path,
         )
         return 0
     except FileNotFoundError as exc:
@@ -264,6 +272,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 shadow=args.shadow,
                 keep_tracks=args.keep,
                 exclude_tracks=args.exclude,
+                speech_pii=args.speech_pii,
+                speech_soft=args.sensitive,
+                transcript_path=Path(args.transcript) if args.transcript else None,
             )
             candidate = expected_out.with_suffix(".summary.json")
             if code == 0 and candidate.exists():
@@ -340,6 +351,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         shadow=args.shadow,
         keep_tracks=args.keep,
         exclude_tracks=args.exclude,
+        speech_pii=args.speech_pii,
+        speech_soft=args.sensitive,
+        transcript_path=Path(args.transcript) if args.transcript else None,
     )
 
 

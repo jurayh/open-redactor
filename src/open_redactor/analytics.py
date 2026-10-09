@@ -61,6 +61,7 @@ def build_summary(
     shadow: bool = False,
     kept_visible: Optional[List[str]] = None,
     sam_mask_source: str = "none",
+    extra_elements: Optional[List[dict]] = None,
 ) -> dict:
     elements: List[dict] = []
     frames_with_hits: set[int] = set()
@@ -87,6 +88,11 @@ def build_summary(
                 "share_of_clip": round(len(detected) / total_frames, 3) if total_frames else 0.0,
             }
         )
+    for element in extra_elements or []:
+        elements.append(element)
+        counts[element["severity"]] += 1
+        for f in range(element["first_frame"], element["last_frame"] + 1):
+            frames_with_hits.add(f)
     elements.sort(key=lambda e: (-e["severity_weight"], -e["frames_detected"], e["track"]))
     risk = sum(e["severity_weight"] * max(0.2, e["share_of_clip"]) for e in elements)
     if audio_mode == "keep":

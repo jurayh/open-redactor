@@ -28,6 +28,8 @@ API and hosted modes send the clip to the endpoint you chose. Local mode and the
 
 Audio defaults to keep, so the original voices ship unless you choose otherwise. --audio mute removes the track entirely. --audio pitch shifts voices with pitch factor 0.8 by default while keeping tempo and duration, so speech stays understandable but no longer sounds like the real speaker. If pitch shifting fails the run writes no audio rather than leaking the original track.
 
+--speech-pii scans what is said, not just how it sounds. The audio is transcribed locally with faster-whisper (install with `pip install "open-redactor[speech]"`), or you can pass --transcript with a Whisper JSON file from any other tool. Spoken digit sequences are rebuilt from number words and digit tokens and verified before anything is muted: Luhn for card numbers, SSA issuing rules for Social Security numbers. Matched spans are muted with a small margin and listed in the summary with their severity. Asking for the layer explicitly without a transcriber is an error with the fix line, while --sensitive enables it only when a transcriber is present and says so when it skips.
+
 Preview renders only the first 3 seconds. A clean preview does not prove the whole clip, the coverage report on the full run is the audit.
 
 Pixel-perfect masks need Node and @meta-sam/parser on the machine. Without them the run falls back to box masks with padding and carry, which is safe but less tight. The summary JSON records which one a run actually used as `sam_mask_source`, so the claim is checkable instead of assumed.

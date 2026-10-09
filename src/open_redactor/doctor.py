@@ -127,6 +127,12 @@ def run_checks(api_key_env: str = "MODEL_API_KEY") -> List[Tuple[str, Check]]:
         "local Grounding SAM stack importable" if local_ok else "not installed, the local backend will ask for the extra",
         'pip install "open-redactor[local]"',
     )))
+    checks.append((OPTIONAL, (
+        "Speech layer (faster-whisper)",
+        _importable("faster_whisper"),
+        "local transcription available for spoken PII muting" if _importable("faster_whisper") else "not installed, --speech-pii will ask for the extra or a transcript file",
+        'pip install "open-redactor[speech]"',
+    )))
     server_ok = _importable("fastapi") and _importable("uvicorn")
     checks.append((OPTIONAL, (
         "HTTP server",

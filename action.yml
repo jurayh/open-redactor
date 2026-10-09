@@ -37,6 +37,10 @@ inputs:
     description: Also scan for text PII and QR or bar codes
     required: false
     default: 'false'
+  speech-pii:
+    description: Also transcribe the audio and mute spoken card numbers, SSNs, phone numbers, and emails
+    required: false
+    default: 'false'
   fail-on:
     description: For audit task, fail when this severity or higher is found
     required: false
@@ -83,6 +87,11 @@ runs:
         python -m pip install --upgrade pip
         python -m pip install "${{ github.action_path }}[pii]"
 
+    - name: Install the speech extra when requested
+      if: inputs.speech-pii == 'true'
+      shell: bash
+      run: python -m pip install "${{ github.action_path }}[speech]"
+
     - name: Run Open Redactor
       id: run-redactor
       shell: bash
@@ -95,6 +104,7 @@ runs:
         INPUT_KEEP: ${{ inputs.keep }}
         INPUT_EXCLUDE: ${{ inputs.exclude }}
         INPUT_SENSITIVE: ${{ inputs.sensitive }}
+        INPUT_SPEECH_PII: ${{ inputs.speech-pii }}
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_BACKEND: ${{ inputs.backend }}
         INPUT_ENDPOINT: ${{ inputs.endpoint }}
@@ -136,6 +146,9 @@ runs:
         fi
         if [[ "$INPUT_SENSITIVE" == "true" ]]; then
           args+=(--sensitive)
+        fi
+        if [[ "$INPUT_SPEECH_PII" == "true" ]]; then
+          args+=(--speech-pii)
         fi
         args+=(--backend "$INPUT_BACKEND")
         if [[ -n "$INPUT_ENDPOINT" ]]; then

@@ -50,7 +50,7 @@ open-redactor clip.mp4 --preset family --mode pixelate  # re-render free, detect
 
 **Location clues.** Street signs, house numbers, plates, and mailboxes with the location preset.
 
-**Voices.** Audio stays, gets muted, or gets pitch shifted so speech remains but the speaker does not.
+**Voices.** Audio stays, gets muted, or gets pitch shifted so speech remains but the speaker does not. And with `--speech-pii`, spoken card numbers, Social Security numbers, phone numbers, and emails are found in the transcript and muted in place, verified with the same Luhn and issuing rules as printed text.
 
 ## Three ways to hide something
 
@@ -96,7 +96,7 @@ open-redactor clip.mp4 --preset documents     # passports, cards, IDs, badges, s
 open-redactor clip.mp4 --preset location      # street signs, house numbers, mailboxes
 ```
 
-Add `--sensitive` to any run to switch on the text and codes layers together. Add `--audio mute` or `--audio pitch` when voices identify someone.
+Add `--sensitive` to any run to switch on the text and codes layers together, plus the speech layer when a transcriber is installed. Add `--audio mute` or `--audio pitch` when voices identify someone, and `--speech-pii` when they might say something identifying.
 
 ## Run SAM wherever you trust it
 
@@ -226,6 +226,7 @@ open-redactor input.mp4 [--output out.mp4]
   --sensitive                       --pii-text         --codes
   --keep TRACK (repeatable)         --exclude TRACK (repeatable)
   --audio keep|mute|pitch          --pitch-factor 0.8
+  --speech-pii                      --transcript transcript.json
   --backend api|hosted|local        --provider sam|grounding-sam
   --endpoint URL                    --api-key-env MODEL_API_KEY
   --no-cache                        --batch            --ui

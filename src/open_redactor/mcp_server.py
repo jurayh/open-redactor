@@ -67,6 +67,8 @@ _OPTION_SCHEMA: dict[str, Any] = {
         "items": {"type": "string"},
         "description": "Track keys to drop from redaction as false positives, for example person:1. Globs allowed.",
     },
+    "speech_pii": {"type": "boolean", "default": False, "description": "Transcribe the audio and mute spoken card numbers, SSNs, phone numbers, and emails."},
+    "transcript_path": {"type": "string", "description": "Path to a Whisper JSON transcript with word timings to use for the speech layer instead of transcribing."},
 }
 
 TOOLS: list[dict[str, Any]] = [

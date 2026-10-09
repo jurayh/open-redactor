@@ -308,6 +308,7 @@ def render_video(
     pitch_factor: float = 0.8,
     shadow: bool = False,
     mask_layers: Optional[List[tuple[List[np.ndarray], int]]] = None,
+    mute_spans: Optional[List] = None,
 ) -> Path:
     """Render redacted frames to MP4 and mux audio when present."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -342,6 +343,11 @@ def render_video(
     if info.has_audio:
         # Mux audio from source, applying the audio redaction mode
         afilter = audio_filter_for(audio_mode, pitch_factor=pitch_factor)
+        span_filter = None
+        if mute_spans:
+            from .speech import mute_span_filter
+
+            span_filter = mute_span_filter(mute_spans)
         if afilter == "":
             print("Audio: muted, output has no audio track")
             cmd = [
@@ -350,14 +356,17 @@ def render_video(
                 "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an",
                 str(output_path),
             ]
-        elif afilter:
-            print(f"Audio: pitch shifted by factor {pitch_factor}, tempo preserved")
+        elif afilter or span_filter:
+            if afilter:
+                print(f"Audio: pitch shifted by factor {pitch_factor}, tempo preserved")
+            if span_filter:
+                print(f"Audio: {len(mute_spans or [])} spoken PII span(s) muted")
             cmd = [
                 "ffmpeg", "-y", "-v", "error",
                 "-i", str(tmp_path),
                 "-i", str(info.path),
                 "-c:v", "libx264",
-                "-af", afilter,
+                "-af", ",".join(x for x in (afilter, span_filter) if x),
                 "-c:a", "aac",
                 "-map", "0:v:0",
                 "-map", "1:a:0",
@@ -381,7 +390,7 @@ def render_video(
             tmp_path.unlink(missing_ok=True)
             return output_path
         except Exception as exc:
-            if audio_mode != "keep":
+            if audio_mode != "keep" or mute_spans:
                 # Never silently ship original audio when redaction failed
                 print(f"Audio redaction failed ({exc}). Writing video with no audio instead of the original track.")
                 fallback = [
@@ -506,6 +515,10 @@ def run_pipeline(
     shadow: bool = False,
     keep_tracks: Optional[List[str]] = None,
     exclude_tracks: Optional[List[str]] = None,
+    speech_pii: bool = False,
+    speech_soft: bool = False,
+    transcript_path: Optional[Path] = None,
+    whisper_model: str = "base",
 ) -> Dict[str, object]:
     """Run the full redaction pipeline and return a summary dict.
 
@@ -609,6 +622,41 @@ def run_pipeline(
                 all_tracks[f"code:{track_key}"] = mask_map
                 total_objects += 1
 
+    # Spoken PII layer: numbers and addresses said out loud survive every
+    # visual layer, so the transcript is scanned with the same verified
+    # patterns and the matched spans are muted in the render. Explicit
+    # requests fail loudly when no transcriber is available, while the
+    # --sensitive bundle enables the layer only when it can run.
+    speech_hits: List = []
+    speech_requested = speech_pii or transcript_path is not None
+    if speech_requested or speech_soft:
+        if not info.has_audio:
+            if speech_requested:
+                print("Speech: input has no audio track, nothing to scan")
+        else:
+            from .speech import find_speech_pii, load_transcript, transcribe, transcriber_available
+
+            words = None
+            if transcript_path is not None:
+                words = load_transcript(transcript_path)
+                print(f"Speech: using transcript {transcript_path}")
+            elif transcriber_available():
+                print("Speech: transcribing audio locally for spoken PII")
+                words = transcribe(input_path, model=whisper_model)
+            elif speech_requested:
+                raise ValueError(
+                    "Speech redaction needs a transcriber. Install it with "
+                    'pip install "open-redactor[speech]", or pass --transcript with a Whisper JSON file.'
+                )
+            else:
+                print("Speech layer skipped: no transcriber installed, so spoken numbers were not scanned")
+            if words is not None:
+                speech_hits = find_speech_pii(words)
+                for hit in speech_hits:
+                    print(f"Speech: {hit.kind} at {hit.start:.1f}s to {hit.end:.1f}s will be muted")
+                if not speech_hits:
+                    print("Speech: no verified PII found in the audio")
+
     # Keep or exclude tracks by key. Kept tracks stay visible while the
     # rest are redacted, excluded tracks are dropped as false positives.
     left_visible: List[str] = []
@@ -669,7 +717,26 @@ def run_pipeline(
         sam_mask_source = "box"
     else:
         sam_mask_source = "mixed"
-    summary = build_summary(all_tracks, total_frames, audio_mode=audio_mode, shadow=shadow, kept_visible=left_visible, sam_mask_source=sam_mask_source)
+    from .analytics import SEVERITY_WEIGHTS, severity_for
+
+    speech_elements: List[dict] = []
+    for n, hit in enumerate(speech_hits, start=1):
+        level = severity_for(hit.kind)
+        first_frame = int(hit.start * info.fps) if info.fps else 0
+        last_frame = int(hit.end * info.fps) if info.fps else first_frame
+        speech_elements.append(
+            {
+                "track": f"speech:{hit.kind}:{n}",
+                "kind": hit.kind,
+                "severity": level,
+                "severity_weight": SEVERITY_WEIGHTS[level],
+                "frames_detected": max(1, last_frame - first_frame),
+                "first_frame": first_frame,
+                "last_frame": last_frame,
+                "share_of_clip": round(max(1, last_frame - first_frame) / total_frames, 3) if total_frames else 0.0,
+            }
+        )
+    summary = build_summary(all_tracks, total_frames, audio_mode=audio_mode, shadow=shadow, kept_visible=left_visible, sam_mask_source=sam_mask_source, extra_elements=speech_elements)
 
     if shadow:
         paths = write_summary_files(summary, output_path, shadow=True)
@@ -776,6 +843,7 @@ def run_pipeline(
             audio_mode=audio_mode,
             pitch_factor=pitch_factor,
             mask_layers=blur_layers,
+            mute_spans=speech_hits or None,
         )
         print(f"Preview sample: {preview_output} ({sample_frames} frames)")
         contact_path = output_path.with_suffix(".contact.png")
@@ -804,6 +872,7 @@ def run_pipeline(
         audio_mode=audio_mode,
         pitch_factor=pitch_factor,
         mask_layers=blur_layers,
+        mute_spans=speech_hits or None,
     )
     if info.has_audio and audio_mode != "keep":
         print(f"Audio redaction applied: {audio_mode}")
