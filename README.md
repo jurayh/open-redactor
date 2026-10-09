@@ -141,7 +141,7 @@ print(result.output_path, result.summary)
 
 **Agents.** Run `open-redactor-mcp` and MCP clients get `redact_media`, `audit_media`, and `read_redaction_summary` as tools. A direct function-calling adapter lives in `examples/integrations/agent_tool.py`.
 
-**CI and Git.** Use the GitHub Action in this repo to audit pull request media or write redacted release files. Use the pre-commit hook to block a risky video before it lands in a repository.
+**CI and Git.** Use the GitHub Action in this repo to audit pull request media or write redacted release files, also listed on the [GitHub Marketplace](https://github.com/marketplace/actions/open-redactor). Use the pre-commit hook to block a risky video before it lands in a repository.
 
 **HTTP.** Install `open-redactor[server]` and run `open-redactor-server` for team tools and no-code platforms such as n8n, Make, and Zapier.
 

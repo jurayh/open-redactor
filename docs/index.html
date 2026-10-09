@@ -208,6 +208,8 @@
     }
     .card.image-card { padding: 0; overflow: hidden; }
     .card.image-card .card-text { padding: 22px 24px 24px; }
+    .card video { display: block; width: 100%; height: auto; background: #000; }
+    .video-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
     .icon {
       width: 42px;
       height: 42px;
@@ -373,7 +375,7 @@
           <article class="card"><div class="icon">⌗</div><h3>Printed secrets</h3><p>OCR finds card numbers, Social Security numbers, phone numbers, and emails. Card numbers must pass the Luhn check before they count.</p></article>
           <article class="card"><div class="icon">▦</div><h3>Codes</h3><p>QR codes and barcodes can carry payment links, Wi-Fi passwords, and contact cards. Code regions get an opaque fill before any blur.</p></article>
           <article class="card"><div class="icon">⌖</div><h3>Location clues</h3><p>Signs, house numbers, mailboxes, and plates are often the detail that turns a nice photo into a map pin.</p></article>
-          <article class="card"><div class="icon">♪</div><h3>Voices</h3><p>Keep the audio, mute it, or pitch shift it so speech remains useful while the speaker is harder to recognize.</p></article>
+          <article class="card"><div class="icon">♪</div><h3>Voices and spoken secrets</h3><p>Keep the audio, mute it, or pitch shift it. And with the speech layer, a dictated phone number, card number, or email is found in the transcript and muted in place.</p></article>
         </div>
       </div>
     </section>
@@ -402,6 +404,26 @@
       </div>
     </section>
 
+    <section id="hear">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Hear it</h2>
+          <p>A voice clip can give away a number no camera ever saw. This caller dictates a phone number out loud. Press play on both.</p>
+        </div>
+        <div class="grid-2">
+          <article class="card image-card">
+            <video controls preload="metadata" src="assets/speech-before.mp4" aria-label="Original voice clip where a phone number is dictated out loud"></video>
+            <div class="card-text"><div class="video-label"><h3>Before</h3><span>number audible</span></div><p>The waveform runs unbroken through the whole clip, number included.</p></div>
+          </article>
+          <article class="card image-card">
+            <video controls preload="metadata" src="assets/speech-after.mp4" aria-label="Redacted voice clip with the dictated phone number muted"></video>
+            <div class="card-text"><div class="video-label"><h3>After</h3><span>2.8s to 7.1s muted</span></div><p>The greeting and the closing words survive. The flat stretch in the middle is the number, gone. Re-transcribing this file finds no PII left.</p></div>
+          </article>
+        </div>
+        <p style="margin-top:18px">One flag does it: <code>open-redactor call.mp4 --speech-pii</code>. Spoken numbers are verified with the same Luhn and issuing rules as printed ones before anything is muted.</p>
+      </div>
+    </section>
+
     <section id="trust" class="band">
       <div class="wrap">
         <div class="section-head">
@@ -414,6 +436,7 @@
             <div class="step"><div><h3>Audit without changing anything</h3><p>Shadow mode lists every element, its frames, and a severity grade. Passports and card numbers grade critical.</p></div></div>
             <div class="step"><div><h3>Read the coverage report</h3><p>Any gap longer than the carry window is flagged NEEDS REVIEW in plain words.</p></div></div>
             <div class="step"><div><h3>Keep one person visible when that is the point</h3><p>Track keys from the report feed the keep and exclude flags, so exceptions stay visible in the record.</p></div></div>
+            <div class="step"><div><h3>Check the setup before the first run</h3><p><code>open-redactor doctor</code> lists what is installed, what is missing, and the exact command that fixes each gap.</p></div></div>
           </div>
           <div class="terminal" aria-label="Example commands and audit output">
 <pre><span class="dim"># Audit first. Nothing is changed.</span>
@@ -463,6 +486,7 @@ open-redactor clip.mp4 --preset family</pre>
         </div>
         <div class="cta-row">
           <a class="button" href="https://github.com/jurayh/open-redactor">Star and read the code</a>
+          <a class="button secondary" href="https://github.com/marketplace/actions/open-redactor">Get the Action on the Marketplace</a>
           <a class="button secondary" href="https://github.com/jurayh/open-redactor/tree/main/examples/showcase-public">See the public showcase pack</a>
           <a class="button secondary" href="https://github.com/jurayh/open-redactor/blob/main/docs/comparison.md">Compare tools honestly</a>
         </div>
