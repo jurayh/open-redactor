@@ -42,10 +42,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install system tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg tesseract-ocr
+      # No tesseract on purpose: the reference scores were recorded with
+      # RapidOCR, and the text layer prefers tesseract when the binary
+      # exists, which would make the gate compare two different engines.
       - name: Install package
         run: |
           python -m pip install --upgrade pip
